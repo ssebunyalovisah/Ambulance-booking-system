@@ -159,11 +159,13 @@ function EmergencyApp() {
       </div>
 
       {/* Main Map View */}
-      <MapView 
-        userLocation={userLocation}
-        ambulances={nearbyAmbulances}
-        onAmbulanceSelect={setSelectedAmbulance}
-      />
+      <div className="absolute inset-0 z-0">
+          <MapView 
+            userLocation={userLocation}
+            ambulances={nearbyAmbulances}
+            onAmbulanceSelect={setSelectedAmbulance}
+          />
+      </div>
 
       {/* Available Units List (Floating Bottom Sheet) */}
       {!isBookingModalOpen && !selectedAmbulance && (

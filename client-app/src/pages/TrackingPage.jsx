@@ -38,7 +38,7 @@ export default function TrackingPage({ onCancel }) {
             </div>
 
             {/* Map Area */}
-            <div className="flex-1 w-full bg-slate-300">
+            <div className="flex-1 w-full bg-slate-300 z-0">
                 {/* Note: the true MapView component should be modified to accept routing props (origin, destination). 
                     For now, it just shows the map. */}
                 <MapView 

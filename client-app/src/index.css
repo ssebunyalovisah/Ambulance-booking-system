@@ -1,5 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #f8fafc;
+}
+
+/* Override Leaflet's aggressive default z-index */
+.leaflet-container {
+  z-index: 0 !important;
 }

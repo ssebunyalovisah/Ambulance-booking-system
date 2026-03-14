@@ -1,107 +1,92 @@
-import { useState, useCallback } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Circle } from '@react-google-maps/api';
+import { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-const containerStyle = {
-  width: '100vw',
-  height: '100vh'
-};
+// Fix for default Leaflet marker icons not showing up in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Create custom icons
+const userIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+const ambulanceIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/1048/1048314.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+});
 
 const defaultCenter = {
   lat: 40.7128,
   lng: -74.0060
 };
 
+// Component to handle map re-centering when user location changes
+function ChangeView({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
+
 export default function MapView({ onAmbulanceSelect, ambulances, userLocation }) {
-  // Using an empty/invalid key will trigger the Google Map development mode overlay,
-  // honoring the request to show the "real" map component instead of our mock list.
-  const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: API_KEY
-  });
-
-  const [map, setMap] = useState(null);
-
-  const onLoad = useCallback(function callback(map) {
-    if (userLocation) {
-        map.setZoom(14);
-    }
-    setMap(map);
-  }, [userLocation]);
-
-  const onUnmount = useCallback(function callback(map) {
-    setMap(null);
-  }, []);
-
-  if (loadError) {
-      return (
-          <div className="h-screen w-screen bg-slate-100 flex items-center justify-center text-red-500 font-bold p-6 text-center">
-              Map cannot be loaded at the moment. Please check your API key.
-          </div>
-      );
-  }
-
-  if (!isLoaded) {
-      return (
-          <div className="h-screen w-screen bg-slate-100 flex flex-col items-center justify-center text-slate-500 font-bold p-6 text-center">
-             <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-             Loading Emergency Grid...
-          </div>
-      );
-  }
+  const center = userLocation || defaultCenter;
 
   return (
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      center={userLocation || defaultCenter}
-      zoom={14}
-      onLoad={onLoad}
-      onUnmount={onUnmount}
-      options={{
-        disableDefaultUI: true,
-        zoomControl: false,
-      }}
-    >
-      {userLocation && (
-        <>
-            <Marker 
-                position={userLocation} 
-                icon={{
-                    path: window.google.maps.SymbolPath.CIRCLE,
-                    scale: 8,
-                    fillColor: '#3b82f6',
-                    fillOpacity: 1,
-                    strokeColor: '#ffffff',
-                    strokeWeight: 2,
-                }} 
+    <div className="w-full h-full z-0">
+        <MapContainer 
+            center={center} 
+            zoom={14} 
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false}
+        >
+            <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
-            <Circle
-                center={userLocation}
-                radius={800}
-                options={{
-                    strokeColor: '#3b82f6',
-                    strokeOpacity: 0.2,
-                    strokeWeight: 1,
-                    fillColor: '#3b82f6',
-                    fillOpacity: 0.1,
-                }}
-            />
-        </>
-      )}
+            
+            <ChangeView center={center} zoom={14} />
 
-      {ambulances.map((amb) => (
-        <Marker 
-            key={amb.id}
-            position={{ lat: amb.lat, lng: amb.lng }}
-            onClick={() => onAmbulanceSelect(amb)}
-            icon={{
-                url: 'https://cdn-icons-png.flaticon.com/512/1048/1048314.png',
-                scaledSize: new window.google.maps.Size(40, 40)
-            }}
-        />
-      ))}
-    </GoogleMap>
+            {userLocation && (
+                <>
+                    <Marker position={userLocation} icon={userIcon} />
+                    <Circle 
+                        center={userLocation} 
+                        pathOptions={{ 
+                            fillColor: '#3b82f6', 
+                            fillOpacity: 0.1, 
+                            color: '#3b82f6', 
+                            weight: 1 
+                        }} 
+                        radius={800} 
+                    />
+                </>
+            )}
+
+            {ambulances.map((amb) => (
+                <Marker 
+                    key={amb.id}
+                    position={{ lat: amb.lat, lng: amb.lng }}
+                    icon={ambulanceIcon}
+                    eventHandlers={{
+                        click: () => onAmbulanceSelect(amb),
+                    }}
+                />
+            ))}
+        </MapContainer>
+    </div>
   );
 }
 
