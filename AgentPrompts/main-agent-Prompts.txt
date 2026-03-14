@@ -1,0 +1,254 @@
+Main Prompt:
+AI Agent Prompt: Ambulance Booking System Architecture
+
+You are a senior full-stack software architect and UI/UX designer. Your task is to design the best architecture and structure for an Ambulance Emergency Booking System.
+
+The system will consist of two applications:
+
+1. User Application (Public App for Patients)
+2. Company/Admin Application (Ambulance Company Dashboard)
+
+Your job is to design:
+
+- The complete system architecture
+- Frontend UI structure
+- Backend logic
+- Database design
+- API structure
+- Real-time location tracking
+- Payment flow
+- Folder structure
+- Best technologies to use
+
+The system should be designed professionally with scalability, security, and performance in mind.
+
+---
+
+# 1. User Application (Patient Side)
+
+This app should allow patients to request ambulances quickly during emergencies.
+
+### Key Requirements
+
+1. The system should be publicly accessible
+
+   - Users should NOT be required to create an account or login.
+
+2. Users should be able to:
+
+   - Detect their current location automatically (GPS).
+   - View nearby available ambulances.
+   - See ambulances from different companies.
+   - Select an ambulance.
+
+3. After selecting an ambulance:
+
+   - A popup form should appear requesting:
+     - Patient Name
+     - Phone Number
+     - Emergency description (not optional)
+     - Payment method
+
+4. After submitting:
+
+   - The system should create a booking request.
+   - The ambulance company should receive the request.
+
+5. The user should be able to:
+
+   - Track the ambulance in real-time on the app using google maps
+   - See estimated arrival time
+   - See live movement of the ambulance
+
+6. The system should also:
+
+   - Share the user's real-time location with the ambulance company
+   - Allow ratings and feedback after the ride.
+
+---
+
+# 2. Company/Admin Application
+
+This is a secured dashboard used by ambulance companies.
+
+### Admin Features
+
+Admins must login to access the system.
+
+Admins should be able to:
+
+1. Register Ambulances
+
+   - Ambulance number
+   - Driver name
+   - Driver contact
+   - GPS device / location tracking
+   - Ambulance status
+
+2. Manage Ambulances
+
+   - Activate ambulance
+   - Deactivate ambulance
+   - Mark ambulance as busy or available(make this automatic)
+
+3. View Emergency Requests
+
+   - Incoming booking requests
+   - Patient details
+   - Location of the patient
+
+4. Track Ambulance Movement
+
+   - Real-time map tracking(on the app using google maps)
+
+5. Approve or confirm payments
+
+6. View Ratings and Feedback
+
+---
+
+# 3. Real-Time Features
+
+The system must support real-time updates, including:
+
+- Live ambulance tracking
+- Live patient location sharing
+- Live booking status updates
+
+Suggest technologies like:
+
+- WebSockets
+- firebase
+- Socket.io
+- Google Maps API or Mapbox
+
+---
+
+# 4. UI / UX Requirements
+
+Design a modern and professional interface.
+
+For the User App, include:
+
+- Landing page
+- Map showing nearby ambulances
+- Ambulance selection card
+- Booking popup form
+- Real-time tracking page
+- Rating page
+
+For the Admin Dashboard, include:
+
+- Login page
+- Dashboard overview
+- Ambulance management page
+- Booking requests page
+- Map tracking page
+- Payments page
+- Feedback page
+
+We also have UI design images/screenshots for some pages.
+Analyze those images and place them in the correct parts of the application flow.
+
+---
+
+# 5. Backend Architecture
+
+Design a scalable backend system including:
+
+- REST API endpoints
+- Authentication for admin
+- Booking system logic
+- Payment processing logic
+- Real-time communication
+- Location tracking
+
+Provide:
+
+- API endpoint examples
+- Backend folder structure
+- Recommended backend framework
+
+Examples:
+
+- Node.js + Express
+- Firebase
+- react web
+
+---
+
+# 6. Database Design
+
+Design a database that includes tables such as:
+
+- Users 
+- Ambulance Companies
+- Ambulances
+- Drivers
+- Bookings
+- Locations
+- Payments
+- Feedback/Ratings
+
+Provide:
+
+- Table structure
+- Relationships
+- Primary and foreign keys
+
+---
+
+# 7. Suggested Tech Stack
+
+Suggest the best stack for this project.
+
+Example stack:
+
+Frontend:
+
+- React 
+
+Backend:
+
+- Node.js + Express
+
+Database:
+
+- MongoDB /PostgreSQL/mysql
+
+Maps:
+
+- Google Maps API
+
+Real-time:
+
+- Socket.io or Firebase
+
+---
+
+# 8. System Architecture Diagram
+
+Provide:
+
+- High-level architecture diagram
+- Data flow
+- How the user app communicates with backend
+- How the admin dashboard communicates with backend
+- How real-time tracking works
+
+---
+
+# 9. Deliverables
+
+Your response should include:
+
+1. Full system architecture
+2. UI page structure
+3. Backend architecture
+4. Database schema
+5. API structure
+6. Real-time tracking approach
+7. Recommended technologies
+8. Folder structure for the project
+
+Design the solution as if it will be used in a real emergency ambulance dispatch system that must be fast, reliable, and scalable.

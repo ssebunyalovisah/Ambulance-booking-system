@@ -1,0 +1,186 @@
+Admin Prompt:
+AI Agent Prompt — Admin / Ambulance Company Dashboard
+
+You are a senior full-stack software architect and backend engineer.
+
+Your task is to design and generate the Admin / Company Dashboard for an Ambulance Emergency Booking System.
+
+This agent should focus ONLY on the ambulance company management system.
+
+---
+
+# System Purpose
+
+This dashboard allows ambulance companies to manage their ambulances, receive emergency bookings, track patients, and approve payments.
+
+The system should be secure and accessible only to authenticated administrators.
+
+---
+
+# Authentication
+
+Admins must login before accessing the dashboard.
+
+Use secure authentication such as:
+
+- JWT authentication
+- Role-based access
+
+---
+
+# Core Admin Features
+
+### 1 Ambulance Registration
+
+Admins must be able to register ambulances with:
+
+- Ambulance Number
+- Driver Name
+- Driver Contact
+- GPS tracking capability
+- Ambulance Status
+
+---
+
+### 2 Ambulance Management
+
+Admins must be able to:
+
+- Activate ambulances
+- Deactivate ambulances
+- Monitor ambulance availability
+
+Ambulance status should automatically change to busy when a booking is accepted.
+
+---
+
+### 3 Booking Management
+
+Admins should see incoming emergency requests including:
+
+- Patient name
+- Phone number
+- Emergency description
+- Patient location on Google Maps
+
+Admins can then:
+
+- Assign ambulance
+- Accept booking
+- Dispatch ambulance
+
+---
+
+### 4 Real-Time Tracking
+
+Admins must be able to track:
+
+- Ambulance location
+- Patient location
+
+Tracking must be shown live on Google Maps.
+
+Use:
+
+- WebSockets
+- Firebase
+- Socket.io
+
+---
+
+### 5 Payment Management
+
+Admins should:
+
+- View booking payments
+- Confirm or approve payments
+- View transaction records
+
+---
+
+### 6 Feedback and Ratings
+
+Admins should be able to view:
+
+- Patient ratings
+- Patient feedback
+- Service reviews
+
+---
+
+# UI Requirements
+
+Design a professional admin dashboard with pages such as:
+
+1. Admin Login Page
+2. Dashboard Overview
+3. Ambulance Management Page
+4. Booking Requests Page
+5. Real-Time Tracking Map
+6. Payment Management Page
+7. Ratings & Feedback Page
+
+We also have UI images/screenshots.  
+Analyze the images and place them in the correct dashboard sections.
+
+---
+
+# Backend System
+
+Design a backend system that supports:
+
+- Booking requests
+- Ambulance dispatch
+- Real-time tracking
+- Payment processing
+- Feedback storage
+
+Provide:
+
+- API endpoints
+- Backend folder structure
+- Middleware
+- Authentication logic
+
+Suggested technologies:
+
+- Node.js + Express
+- Firebase
+- PostgreSQL / MongoDB / MySQL
+
+---
+
+# Database Design
+
+Design database tables such as:
+
+- Admins
+- AmbulanceCompanies
+- Ambulances
+- Drivers
+- Bookings
+- Locations
+- Payments
+- Feedback
+
+Provide:
+
+- Table structures
+- Relationships
+- Primary and foreign keys
+
+---
+
+# Deliverables
+
+Provide:
+
+1. Admin dashboard architecture
+2. Backend architecture
+3. API endpoints
+4. Database schema
+5. Folder structure
+6. Real-time tracking implementation
+7. Security considerations
+
+The solution should be designed as a scalable real-world ambulance dispatch system.

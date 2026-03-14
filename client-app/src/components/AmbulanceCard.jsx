@@ -1,8 +1,13 @@
 import { motion } from 'framer-motion';
-import { Clock, Navigation, Phone, ShieldAlert, DollarSign } from 'lucide-react';
+import { Clock, Navigation, Phone, ShieldAlert, DollarSign, X } from 'lucide-react';
+import ambulanceNight from '../assets/ambulance-night.jpg';
+import ambulanceDay from '../assets/ambulance-day.jpg';
 
-export default function AmbulanceCard({ ambulance, onRequest }) {
+export default function AmbulanceCard({ ambulance, onRequest, onClose }) {
     if (!ambulance) return null;
+
+    // Alternate images based on ID for visual variety
+    const imageToUse = Number(ambulance.id) % 2 === 0 ? ambulanceNight : ambulanceDay;
 
     return (
         <motion.div 
@@ -14,7 +19,7 @@ export default function AmbulanceCard({ ambulance, onRequest }) {
             {/* Header Image Area - Represents provided Ambulance Image (e.g. night/day ambulance) */}
             <div className="relative h-44 w-full bg-slate-200">
                 <img 
-                    src="https://images.unsplash.com/photo-1587556930799-8dca6a5f4bb5?q=80&w=800&auto=format&fit=crop" 
+                    src={imageToUse} 
                     alt="Emergency Ambulance" 
                     className="w-full h-full object-cover"
                 />
@@ -27,10 +32,19 @@ export default function AmbulanceCard({ ambulance, onRequest }) {
                 </div>
                 
                 {/* Distance Badge floating top-right */}
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md text-slate-800 px-3 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
+                <div className="absolute top-16 right-4 bg-white/90 backdrop-blur-md text-slate-800 px-3 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
                     <Navigation className="w-4 h-4 text-blue-600" />
                     {ambulance.distance} km
                 </div>
+
+                {/* Close Button top-right */}
+                <button 
+                    onClick={onClose}
+                    className="absolute top-4 right-4 bg-white/40 hover:bg-white/90 backdrop-blur-md text-slate-800 p-2 rounded-full shadow-lg transition-colors z-40"
+                    aria-label="Close"
+                >
+                    <X className="w-5 h-5" />
+                </button>
             </div>
 
             <div className="p-5">

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Phone, ShieldAlert, Navigation, MoreVertical, X } from 'lucide-react';
 import MapView from '../components/MapComponent';
 import { useBookingStore } from '../store/useBookingStore';
+import ambulanceDay from '../assets/ambulance-day.jpg';
 
 export default function TrackingPage({ onCancel }) {
     const { activeBookingId, selectedAmbulance } = useBookingStore();
@@ -73,7 +74,7 @@ export default function TrackingPage({ onCancel }) {
                     <div className="flex items-center gap-4 mb-6">
                         <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-200 rounded-2xl overflow-hidden shrink-0 border-2 border-slate-100 shadow-sm">
                              <img 
-                                src="https://images.unsplash.com/photo-1587556930799-8dca6a5f4bb5?q=80&w=200&auto=format&fit=crop" 
+                                src={ambulanceDay} 
                                 alt="Ambulance" 
                                 className="w-full h-full object-cover"
                             />

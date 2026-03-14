@@ -1,0 +1,133 @@
+client-app-agent-prompt:
+AI Agent Prompt — Client (Patient) Application
+
+You are a senior frontend engineer, UI/UX designer, and system architect. Your task is to design and generate the Client/Patient Application for an Ambulance Emergency Booking System.
+
+The client app should focus ONLY on the patient side of the system and must not include admin features.
+
+The system should be built with React (Web Application) and must integrate with a backend API.
+
+⸻
+
+System Goal
+
+The application should allow patients to quickly request an ambulance during emergencies without needing to login or create an account.
+
+The system must be fast, simple, and easy to use under emergency situations.
+
+⸻
+
+Core Features
+
+1 Public Access
+
+The system must be publicly accessible.
+
+Patients should not be required to create an account or login before requesting an ambulance.
+
+⸻
+
+2 Location Detection
+
+The system must:
+	•	Automatically detect the user’s GPS location
+	•	Display the location on Google Maps
+	•	Show nearby available ambulances
+
+⸻
+
+3 Ambulance Selection
+
+Users must be able to:
+	•	View ambulances from different companies
+	•	See ambulance cards showing:
+	•	Company name
+	•	Estimated arrival time
+	•	Distance from user
+	•	Price estimate
+
+Users can then select an ambulance.
+
+⸻
+
+4 Booking Popup Form
+
+After selecting an ambulance, a popup form should appear asking for:
+	•	Patient Name
+	•	Phone Number
+	•	Emergency Description (required)
+	•	Payment Method
+
+After submission, the system should create a booking request.
+
+⸻
+
+5 Real-Time Tracking
+
+After booking:
+
+The patient should see a tracking page showing:
+	•	Ambulance moving in real-time on Google Maps
+	•	Estimated arrival time
+	•	Distance remaining
+
+The patient’s location must also be shared in real-time with the ambulance company.
+
+Use technologies such as:
+	•	WebSockets
+	•	Firebase
+	•	Socket.io
+
+⸻
+
+6 Ratings and Feedback
+
+After the trip is completed, the user should be able to:
+	•	Rate the ambulance service
+	•	Leave feedback
+
+⸻
+
+UI/UX Requirements
+
+Design a modern and professional interface.
+
+Required Pages:
+	1.	Landing Page
+	2.	Map Page (show nearby ambulances)
+	3.	Ambulance selection cards
+	4.	Booking popup form
+	5.	Real-time tracking page
+	6.	Rating and feedback page
+
+We also have UI design images/screenshots.
+Analyze these images and place them in the correct UI pages of the system.
+
+⸻
+
+Backend Communication
+
+The client app should communicate with the backend through REST APIs.
+
+Examples:
+	•	Request nearby ambulances
+	•	Create booking
+	•	Send patient location
+	•	Get ambulance location
+	•	Submit feedback
+
+⸻
+
+Deliverables
+
+Provide:
+	1.	Full frontend architecture
+	2.	React folder structure
+	3.	UI page structure
+	4.	API integration plan
+	5.	Real-time tracking implementation
+	6.	Google Maps integration
+	7.	State management approach
+	8.	Best UI component design
+
+Design the solution as a production-ready emergency system.

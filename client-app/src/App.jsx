@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
-import { Stethoscope, AlertCircle } from 'lucide-react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Stethoscope, ArrowLeft } from 'lucide-react';
 import MapView from './components/MapComponent';
 import AmbulanceCard from './components/AmbulanceCard';
+import AvailableUnitsList from './components/AvailableUnitsList';
 import BookingModal from './components/BookingModal';
 import TrackingPage from './pages/TrackingPage';
 import FeedbackPage from './pages/FeedbackPage';
+import LandingPage from './pages/LandingPage';
 import { createBooking } from './services/api';
 import { socketService } from './services/socket';
 import { useBookingStore } from './store/useBookingStore';
@@ -16,7 +19,16 @@ const MOCK_AMBULANCES = [
   { id: '2', lat: 40.7108, lng: -74.0080, companyName: 'Rapid Med Transport', plateNumber: 'NY-499', eta: 8, distance: 2.1 },
 ];
 
-function App() {
+function EmergencyApp() {
+  const navigate = useNavigate();
+
+  // If a hard refresh happens, volatile memory is cleared. Force navigate back to Home (/)
+  useEffect(() => {
+    if (!window.isClientNav) {
+        navigate("/", { replace: true });
+    }
+  }, [navigate]);
+
   const { 
     userLocation, 
     setUserLocation, 
@@ -105,33 +117,44 @@ function App() {
     return (
         <FeedbackPage 
             ambulance={selectedAmbulance} 
-            onReturnHome={() => clearBooking()} 
+            onReturnHome={() => {
+                clearBooking();
+                navigate("/", { replace: true });
+            }} 
         />
     );
   }
 
   // If there is an active booking, show the Tracking Page
   if (activeBookingId) {
-    return <TrackingPage onCancel={() => clearBooking()} />;
+    return <TrackingPage onCancel={() => {
+        clearBooking();
+        navigate("/", { replace: true });
+    }} />;
   }
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-50">
       {/* Premium Header */}
       <div className="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-center pointer-events-none">
-        <div className="bg-white/80 backdrop-blur-xl px-5 py-4 rounded-3xl shadow-2xl border border-white/40 flex items-center gap-4 pointer-events-auto transform transition-all hover:scale-105">
-          <div className="bg-gradient-to-br from-red-500 to-red-600 p-3 rounded-2xl text-white shadow-lg shadow-red-500/20">
-            <Stethoscope className="w-6 h-6" />
+        <button 
+          onClick={() => navigate("/")}
+          className="bg-white/80 backdrop-blur-xl p-3 md:px-5 py-4 rounded-3xl shadow-xl hover:shadow-2xl border border-white/40 flex items-center gap-4 pointer-events-auto transform transition-all hover:scale-105 active:scale-95"
+        >
+          <div className="bg-slate-100 p-3 rounded-2xl text-slate-700">
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </div>
-          <div>
-            <h1 className="font-extrabold text-slate-900 text-lg leading-none tracking-tight">Rapid Rescue</h1>
-            <p className="border-t border-slate-100 mt-1 pt-1 text-[10px] text-red-600 font-black tracking-[0.2em] uppercase">Emergency Dispatch</p>
+          <div className="hidden md:block text-left">
+            <h1 className="font-bold text-slate-800 text-sm md:text-md leading-none tracking-tight">Return Home</h1>
+            <p className="mt-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider">Cancel Request</p>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white/80 backdrop-blur-xl p-3 rounded-2xl shadow-xl pointer-events-auto flex items-center gap-2 text-slate-600 border border-white/40">
-           <AlertCircle className="w-5 h-5 text-red-500 animate-pulse" />
-           <span className="text-sm font-bold">Live Status</span>
+        <div className="bg-white/80 backdrop-blur-xl p-3 md:px-5 py-3 rounded-3xl shadow-xl pointer-events-auto flex items-center gap-3 border border-white/40 shadow-red-500/10">
+           <div className="bg-red-500 p-2 md:p-2.5 rounded-xl text-white animate-pulse">
+               <Stethoscope className="w-4 h-4 md:w-5 md:h-5" />
+           </div>
+           <span className="text-sm md:text-md text-red-600 font-bold tracking-tight">Rescue System</span>
         </div>
       </div>
 
@@ -141,6 +164,14 @@ function App() {
         ambulances={nearbyAmbulances}
         onAmbulanceSelect={setSelectedAmbulance}
       />
+
+      {/* Available Units List (Floating Bottom Sheet) */}
+      {!isBookingModalOpen && !selectedAmbulance && (
+        <AvailableUnitsList 
+          ambulances={nearbyAmbulances} 
+          onSelect={setSelectedAmbulance} 
+        />
+      )}
 
       {/* Selection Card (Slide up from bottom) */}
       {!isBookingModalOpen && selectedAmbulance && (
@@ -162,9 +193,22 @@ function App() {
       
       {/* Background overlay when modal is open */}
       {isBookingModalOpen && (
-        <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] z-40 transition-all" />
+        <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] z-40 transition-all pointer-events-none" />
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/map" element={<EmergencyApp />} />
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, MessageSquare, CheckCircle2, Home, Share2 } from 'lucide-react';
+import ambulanceDay from '../assets/ambulance-day.jpg';
 
 export default function FeedbackPage({ ambulance, onReturnHome }) {
     const [rating, setRating] = useState(0);
@@ -60,7 +61,7 @@ export default function FeedbackPage({ ambulance, onReturnHome }) {
                     <div className="flex items-center gap-4 mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                         <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-200">
                             <img 
-                                src="https://images.unsplash.com/photo-1587556930799-8dca6a5f4bb5?q=80&w=100&auto=format&fit=crop" 
+                                src={ambulanceDay} 
                                 alt="Ambulance" 
                                 className="w-full h-full object-cover"
                             />
