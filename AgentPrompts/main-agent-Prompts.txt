@@ -214,7 +214,8 @@ Backend:
 
 Database:
 
-- MongoDB /PostgreSQL/mysql
+- SQLite3 (for development)
+- MongoDB / PostgreSQL / MySQL (for production)
 
 Maps:
 

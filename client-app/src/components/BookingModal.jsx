@@ -17,12 +17,13 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4">
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4">
                 <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: 100 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 100 }}
-                    className="bg-white w-full max-w-4xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[90vh] md:h-auto max-h-[800px]"
+                    initial={{ opacity: 0, y: '100%' }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: '100%' }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                    className="bg-white w-full max-w-4xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[95vh] sm:h-auto max-h-[95vh] sm:max-h-[850px]"
                 >
                     {/* Left Side - Image/Context Panel */}
                     <div className="md:w-5/12 relative hidden md:block bg-slate-900">

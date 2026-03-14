@@ -4,31 +4,48 @@ const db = require('../config/db');
 
 // Create a new booking
 router.post('/', async (req, res) => {
-  const { patient_name, phone_number, description, lat, lng, payment } = req.body;
+  const { name, phone, description, lat, lng, payment } = req.body;
+  const patient_name = name;
+  const phone_number = phone;
   
-  // Create a mock UUID for demo
-  const booking_id = 'booking-' + Math.random().toString(36).substr(2, 9);
-  
-  const bookingData = {
-    id: booking_id,
-    patientName: patient_name,
-    phone: phone_number,
-    description,
-    lat,
-    lng,
-    status: 'PENDING',
-    paymentMethod: payment
-  };
+  try {
+      // For demo purposes, we'll assign the first company found if none is provided
+      const companyResult = await db.query('SELECT id FROM companies LIMIT 1');
+      const company_id = companyResult.rows[0]?.id;
 
-  // TODO: Insert into bookings DB
+      if (!company_id) {
+          return res.status(400).json({ error: 'No ambulance companies available' });
+      }
 
-  // Emit event to admins
-  const io = req.app.get('io');
-  if (io) {
-      io.to('company_dashboard').emit('new_booking_request', bookingData);
+      const result = await db.query(
+          'INSERT INTO bookings (company_id, patient_name, phone_number, emergency_description, pickup_latitude, pickup_longitude, payment_method) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [company_id, patient_name, phone_number, description, lat, lng, payment]
+      );
+
+      const booking_id = result.lastID;
+      
+      const bookingData = {
+        id: booking_id,
+        patientName: patient_name,
+        phone: phone_number,
+        description,
+        lat,
+        lng,
+        status: 'PENDING',
+        paymentMethod: payment
+      };
+
+      // Emit event to admins
+      const io = req.app.get('io');
+      if (io) {
+          io.to('company_dashboard').emit('new_booking_request', bookingData);
+      }
+
+      res.json({ success: true, booking_id, status: 'PENDING' });
+  } catch (err) {
+      console.error('Error creating booking:', err);
+      res.status(500).json({ error: 'Server error' });
   }
-
-  res.json({ success: true, booking_id, status: 'PENDING' });
 });
 
 // Check booking status

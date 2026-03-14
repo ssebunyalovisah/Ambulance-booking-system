@@ -146,7 +146,8 @@ Suggested technologies:
 
 - Node.js + Express
 - Firebase
-- PostgreSQL / MongoDB / MySQL
+- SQLite3 (for development)
+- PostgreSQL / MongoDB / MySQL (for production)
 
 ---
 

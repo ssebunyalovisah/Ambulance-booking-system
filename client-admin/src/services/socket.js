@@ -30,6 +30,12 @@ class AdminSocketService {
             this.socket.on('ambulance_live_location', callback);
         }
     }
+
+    onBookingStatusUpdate(callback) {
+        if (this.socket) {
+            this.socket.on('booking_status_changed', callback);
+        }
+    }
     
     disconnect() {
         if (this.socket) {

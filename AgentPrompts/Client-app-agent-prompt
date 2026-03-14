@@ -11,7 +11,7 @@ The system should be built with React (Web Application) and must integrate with 
 
 System Goal
 
-The application should allow patients to quickly request an ambulance during emergencies without needing to login or create an account.
+The application should allow patients to quickly request an ambulance during emergencies without needing to login or create an account. For development, the system will use SQLite3, and for production, it will use PostgreSQL or MySQL.
 
 The system must be fast, simple, and easy to use under emergency situations.
 

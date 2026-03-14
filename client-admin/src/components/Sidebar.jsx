@@ -1,52 +1,104 @@
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Map, ListOrdered, Users, Settings, LogOut } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { 
+  LayoutDashboard, 
+  Ambulance, 
+  Settings, 
+  Bell, 
+  CreditCard, 
+  MessageSquare, 
+  LogOut,
+  ChevronRight
+} from 'lucide-react';
 
-export default function Sidebar() {
-  const location = useLocation();
-  const pathname = location.pathname;
+const Sidebar = ({ isOpen, onClose }) => {
+    const { admin, logout } = useAuth();
 
-  const links = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Live Map', path: '/map', icon: Map },
-    { name: 'Requests', path: '/requests', icon: ListOrdered },
-    { name: 'Fleet', path: '/fleet', icon: Users },
-    { name: 'Settings', path: '/settings', icon: Settings },
-  ];
+    const navItems = [
+        { icon: LayoutDashboard, label: 'Dispatch Center', path: '/' },
+        { icon: Ambulance, label: 'Fleet Management', path: '/ambulances' },
+        { icon: CreditCard, label: 'Payments', path: '/payments' },
+        { icon: MessageSquare, label: 'Service Feedback', path: '/feedback' },
+        { icon: Bell, label: 'Notifications', path: '/notifications' },
+        { icon: Settings, label: 'Company Settings', path: '/settings' },
+    ];
 
-  return (
-    <div className="w-64 bg-slate-900 text-slate-300 flex flex-col h-screen fixed left-0 top-0">
-      <div className="p-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-            <Map className="w-5 h-5 text-white" />
-          </div>
-          RescueAdmin
-        </h1>
-      </div>
-      
-      <div className="flex-1 py-6 flex flex-col gap-2 px-4">
-        {links.map((link) => {
-          const Icon = link.icon;
-          const isActive = pathname === link.path;
-          return (
-            <Link 
-              key={link.name} 
-              to={link.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive ? 'bg-red-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="font-medium">{link.name}</span>
-            </Link>
-          );
-        })}
-      </div>
+    return (
+        <>
+            {/* Mobile Overlay */}
+            {isOpen && (
+                <div 
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden transition-opacity"
+                    onClick={onClose}
+                />
+            )}
 
-      <div className="p-4 border-t border-slate-800">
-        <button className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition w-full text-left">
-          <LogOut className="w-5 h-5" />
-          <span className="font-medium">Sign Out</span>
-        </button>
-      </div>
-    </div>
-  );
-}
+            <div className={`w-64 bg-slate-900 h-screen fixed left-0 top-0 text-slate-300 flex flex-col border-r border-slate-800 z-[70] transition-transform duration-300 lg:translate-x-0 ${
+                isOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}>
+                <div className="p-6 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/20">
+                        <Ambulance className="text-white w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-white text-lg tracking-tight">RescueAdmin</h2>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Live System</span>
+                        </div>
+                    </div>
+                </div>
+
+                <nav className="flex-1 px-4 mt-4 space-y-1">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.label}
+                            to={item.path}
+                            onClick={onClose}
+                            className={({ isActive }) => 
+                                `flex items-center justify-between p-3 rounded-xl transition-all group ${
+                                    isActive 
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                                    : 'hover:bg-slate-800/50 hover:text-white'
+                                }`
+                            }
+                        >
+                            <div className="flex items-center gap-3">
+                                <item.icon className="w-5 h-5" />
+                                <span className="font-medium">{item.label}</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </NavLink>
+                    ))}
+                </nav>
+
+                <div className="p-4 mt-auto">
+                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">
+                                {admin?.companyName?.[0] || 'A'}
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <p className="text-sm font-bold text-white truncate">{admin?.companyName || 'Admin'}</p>
+                                <p className="text-[10px] text-slate-500 truncate">{admin?.email}</p>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onClick={() => {
+                                onClose();
+                                logout();
+                            }}
+                            className="w-full flex items-center justify-center gap-2 p-2.5 bg-slate-700/50 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all text-xs font-semibold"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
+export default Sidebar;

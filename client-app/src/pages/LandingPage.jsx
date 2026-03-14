@@ -47,14 +47,14 @@ const LandingPage = () => {
                 transition={{ duration: 0.8 }}
                 className="pr-12"
               >
-                <h1 className="text-white font-black text-5xl leading-tight sm:text-6xl">
+                <h1 className="text-white font-black text-4xl leading-tight sm:text-6xl px-2">
                   Fastest Way to Get an <span className="text-red-500">Ambulance</span>
                 </h1>
-                <p className="mt-4 text-lg text-slate-200 font-medium">
+                <p className="mt-4 text-base sm:text-lg text-slate-200 font-medium px-4">
                   We detect your location instantly and match you with the nearest emergency vehicles. No account needed.
                 </p>
                 
-                <div className="mt-10 mb-8 sm:flex sm:justify-center">
+                <div className="mt-10 mb-8 sm:flex sm:justify-center px-4">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -64,7 +64,7 @@ const LandingPage = () => {
                     }}
                     className="w-full sm:w-auto flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-red-600 hover:bg-red-700 md:py-5 md:text-xl md:px-10 shadow-lg shadow-red-600/30 transition-all group"
                   >
-                    Request Emergency Ambulance
+                    Request Emergency Now
                     <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </div>
@@ -75,15 +75,15 @@ const LandingPage = () => {
       </div>
 
       {/* Feature Section */}
-      <section className="pb-20 bg-slate-50 -mt-24 relative z-10">
+      <section className="pb-20 bg-slate-50 -mt-24 relative z-10 px-2 sm:px-0">
         <div className="container mx-auto px-4">
-          <div className="flex flex-wrap">
+          <div className="flex flex-wrap gap-y-6 md:gap-y-0">
             
             <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="lg:pt-12 pt-6 w-full md:w-4/12 px-4 text-center"
+                className="w-full md:w-4/12 px-4 text-center"
             >
               <div className="relative flex flex-col min-w-0 break-words bg-white w-full shadow-xl rounded-3xl">
                 <div className="px-6 py-8 flex-auto">
@@ -123,7 +123,7 @@ const LandingPage = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="pt-6 w-full md:w-4/12 px-4 text-center"
+                className="w-full md:w-4/12 px-4 text-center"
             >
               <div className="relative flex flex-col min-w-0 break-words bg-white w-full shadow-xl rounded-3xl">
                 <div className="px-6 py-8 flex-auto">
@@ -140,17 +140,17 @@ const LandingPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center mt-24">
-            <div className="w-full md:w-5/12 px-4 mr-auto ml-auto">
+            <div className="w-full md:w-5/12 px-4 mr-auto ml-auto mb-12 sm:mb-0">
               <div className="text-slate-500 p-3 text-center inline-flex items-center justify-center w-16 h-16 mb-6 shadow-lg rounded-full bg-white">
                 <Stethoscope className="w-8 h-8 text-slate-600" />
               </div>
-              <h3 className="text-3xl mb-2 font-bold leading-tight text-slate-900">
+              <h3 className="text-2xl sm:text-3xl mb-2 font-bold leading-tight text-slate-900">
                 Global Standards of Medical Transport
               </h3>
-              <p className="text-lg font-medium leading-relaxed mt-4 mb-4 text-slate-600">
+              <p className="text-base sm:text-lg font-medium leading-relaxed mt-4 mb-4 text-slate-600">
                 Our platform aggregates multiple reputable hospital services and independent ambulance providers to get you life-saving help swiftly.
               </p>
-              <p className="text-lg font-medium leading-relaxed mt-0 mb-4 text-slate-600">
+              <p className="text-base sm:text-lg font-medium leading-relaxed mt-0 mb-4 text-slate-600">
                 The transparent tracking features give your loved ones peace of mind during highly stressful transit periods.
               </p>
             </div>
@@ -160,7 +160,7 @@ const LandingPage = () => {
                 <img
                   alt="Medical care parameters"
                   src={featureGlobe}
-                  className="w-full align-middle h-80 object-cover opacity-90"
+                  className="w-full align-middle h-64 sm:h-80 object-cover opacity-90"
                 />
               </div>
             </div>

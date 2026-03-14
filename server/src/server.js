@@ -24,6 +24,9 @@ require('./sockets/index')(io);
 
 const publicAmbulanceRoutes = require('./routes/public_ambulances');
 const publicBookingRoutes = require('./routes/public_bookings');
+const authRoutes = require('./routes/auth');
+const ambulanceRoutes = require('./routes/ambulances');
+const adminBookingRoutes = require('./routes/admin_bookings');
 
 // Make io accessible to our router
 app.set('io', io);
@@ -31,6 +34,9 @@ app.set('io', io);
 // Register routes
 app.use('/api/public/ambulances', publicAmbulanceRoutes);
 app.use('/api/public/bookings', publicBookingRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin/ambulances', ambulanceRoutes);
+app.use('/api/admin/bookings', adminBookingRoutes);
 
 // Sample route structure
 app.get('/api/health', (req, res) => {

@@ -8,26 +8,20 @@ import BookingModal from './components/BookingModal';
 import TrackingPage from './pages/TrackingPage';
 import FeedbackPage from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
-import { createBooking } from './services/api';
+import { createBooking, getNearbyAmbulances } from './services/api';
 import { socketService } from './services/socket';
 import { useBookingStore } from './store/useBookingStore';
 import { useLocationStore } from './store/useLocationStore';
 
-// Temporary Mock Data for Demonstration
-const MOCK_AMBULANCES = [
-  { id: '1', lat: 40.7138, lng: -74.0040, companyName: 'City Rescue Force', plateNumber: 'NY-112', eta: 5, distance: 1.2 },
-  { id: '2', lat: 40.7108, lng: -74.0080, companyName: 'Rapid Med Transport', plateNumber: 'NY-499', eta: 8, distance: 2.1 },
-];
-
 function EmergencyApp() {
   const navigate = useNavigate();
 
-  // If a hard refresh happens, volatile memory is cleared. Force navigate back to Home (/)
-  useEffect(() => {
-    if (!window.isClientNav) {
-        navigate("/", { replace: true });
-    }
-  }, [navigate]);
+  // Removed the hard-refresh redirect glitch to allow direct access/refresh
+  // useEffect(() => {
+  //   if (!window.isClientNav) {
+  //       navigate("/", { replace: true });
+  //   }
+  // }, [navigate]);
 
   const { 
     userLocation, 
@@ -50,21 +44,38 @@ function EmergencyApp() {
     clearBooking
   } = useBookingStore();
 
-  // 1. Initial Location Detection
+  // 1. Initial Location Detection & Real API Integration
   useEffect(() => {
+    const fetchAmbulances = async (coords) => {
+        try {
+            const data = await getNearbyAmbulances(coords.lat, coords.lng);
+            if (data.success) {
+                setNearbyAmbulances(data.ambulances || []);
+            }
+        } catch (err) {
+            console.error("API fetch failed", err);
+            setNearbyAmbulances([]);
+        }
+    };
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          setNearbyAmbulances(MOCK_AMBULANCES);
+        async (position) => {
+          const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+          setUserLocation(coords);
+          fetchAmbulances(coords);
         },
         (error) => {
-          console.error("Error getting location", error);
-          // Fallback center
-          setUserLocation({ lat: 40.7128, lng: -74.0060 });
-          setNearbyAmbulances(MOCK_AMBULANCES);
+          console.warn("Geolocation failed or blocked, using default center.", error);
+          const fallback = { lat: 40.7128, lng: -74.0060 };
+          setUserLocation(fallback);
+          fetchAmbulances(fallback);
         }
       );
+    } else {
+        const fallback = { lat: 40.7128, lng: -74.0060 };
+        setUserLocation(fallback);
+        fetchAmbulances(fallback);
     }
   }, [setUserLocation, setNearbyAmbulances]);
 
