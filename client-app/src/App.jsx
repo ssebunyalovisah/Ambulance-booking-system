@@ -27,7 +27,9 @@ function EmergencyApp() {
     userLocation, 
     setUserLocation, 
     nearbyAmbulances, 
-    setNearbyAmbulances 
+    setNearbyAmbulances,
+    locationLoading,
+    setLocationLoading
   } = useLocationStore();
 
   const { 
@@ -63,18 +65,22 @@ function EmergencyApp() {
         async (position) => {
           const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
           setUserLocation(coords);
+          setLocationLoading(false);
           fetchAmbulances(coords);
         },
         (error) => {
           console.warn("Geolocation failed or blocked, using default center.", error);
-          const fallback = { lat: 40.7128, lng: -74.0060 };
+          const fallback = { lat: 0.3476, lng: 32.5825 }; // Kampala, Uganda as regional fallback
           setUserLocation(fallback);
+          setLocationLoading(false);
           fetchAmbulances(fallback);
-        }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
-        const fallback = { lat: 40.7128, lng: -74.0060 };
+        const fallback = { lat: 0.3476, lng: 32.5825 };
         setUserLocation(fallback);
+        setLocationLoading(false);
         fetchAmbulances(fallback);
     }
   }, [setUserLocation, setNearbyAmbulances]);
@@ -173,6 +179,7 @@ function EmergencyApp() {
       <div className="absolute inset-0 z-0">
           <MapView 
             userLocation={userLocation}
+            locationLoading={locationLoading}
             ambulances={nearbyAmbulances}
             onAmbulanceSelect={setSelectedAmbulance}
           />

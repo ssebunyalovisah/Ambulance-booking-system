@@ -27,27 +27,39 @@ const ambulanceIcon = new L.Icon({
     iconAnchor: [20, 20],
 });
 
-const defaultCenter = {
-  lat: 40.7128,
-  lng: -74.0060
-};
-
 // Component to handle map re-centering when user location changes
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, zoom);
+    if (center) {
+      map.setView(center, zoom);
+    }
   }, [center, zoom, map]);
   return null;
 }
 
-export default function MapView({ onAmbulanceSelect, ambulances, userLocation }) {
-  const center = userLocation || defaultCenter;
+export default function MapView({ onAmbulanceSelect, ambulances, userLocation, locationLoading }) {
+  // Don't render map until we have a real location
+  if (locationLoading || !userLocation) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100">
+        <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-2xl shadow-lg">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin" />
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-slate-700 text-lg">Getting Your Location</p>
+            <p className="text-slate-400 text-sm mt-1">Please allow location access when prompted</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full z-0">
         <MapContainer 
-            center={center} 
+            center={userLocation} 
             zoom={14} 
             style={{ height: '100%', width: '100%' }}
             zoomControl={false}
@@ -57,23 +69,19 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation })
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
             
-            <ChangeView center={center} zoom={14} />
+            <ChangeView center={userLocation} zoom={14} />
 
-            {userLocation && (
-                <>
-                    <Marker position={userLocation} icon={userIcon} />
-                    <Circle 
-                        center={userLocation} 
-                        pathOptions={{ 
-                            fillColor: '#3b82f6', 
-                            fillOpacity: 0.1, 
-                            color: '#3b82f6', 
-                            weight: 1 
-                        }} 
-                        radius={800} 
-                    />
-                </>
-            )}
+            <Marker position={userLocation} icon={userIcon} />
+            <Circle 
+                center={userLocation} 
+                pathOptions={{ 
+                    fillColor: '#3b82f6', 
+                    fillOpacity: 0.1, 
+                    color: '#3b82f6', 
+                    weight: 1 
+                }} 
+                radius={800} 
+            />
 
             {ambulances.map((amb) => (
                 <Marker 
@@ -89,5 +97,3 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation })
     </div>
   );
 }
-
-

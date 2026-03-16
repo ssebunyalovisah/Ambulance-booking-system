@@ -17,17 +17,17 @@ const LandingPage = () => {
             <div className="bg-red-600 p-2 rounded-xl text-white">
               <Stethoscope className="w-6 h-6" />
             </div>
-            <span className="font-extrabold text-xl tracking-tight text-slate-900">Rapid Rescue</span>
+            <span className="font-extrabold text-xl tracking-tight text-slate-900">AmbuCare</span>
           </div>
           <div>
-            <button 
-                onClick={() => {
-                    window.isClientNav = true;
-                    navigate('/map');
-                }}
-                className="bg-red-100 text-red-600 px-4 py-2 font-bold rounded-lg hover:bg-red-200 transition-colors"
+            <button
+              onClick={() => {
+                window.isClientNav = true;
+                navigate('/map');
+              }}
+              className="bg-red-100 text-red-600 px-4 py-2 font-bold rounded-lg hover:bg-red-200 transition-colors"
             >
-                Emergency Now
+              Emergency Now
             </button>
           </div>
         </div>
@@ -41,7 +41,7 @@ const LandingPage = () => {
         <div className="container relative mx-auto px-4">
           <div className="items-center flex flex-wrap">
             <div className="w-full lg:w-6/12 px-4 ml-auto mr-auto text-center">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
@@ -53,14 +53,14 @@ const LandingPage = () => {
                 <p className="mt-4 text-base sm:text-lg text-slate-200 font-medium px-4">
                   We detect your location instantly and match you with the nearest emergency vehicles. No account needed.
                 </p>
-                
+
                 <div className="mt-10 mb-8 sm:flex sm:justify-center px-4">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                        window.isClientNav = true;
-                        navigate('/map');
+                      window.isClientNav = true;
+                      navigate('/map');
                     }}
                     className="w-full sm:w-auto flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-red-600 hover:bg-red-700 md:py-5 md:text-xl md:px-10 shadow-lg shadow-red-600/30 transition-all group"
                   >
@@ -78,12 +78,12 @@ const LandingPage = () => {
       <section className="pb-20 bg-slate-50 -mt-24 relative z-10 px-2 sm:px-0">
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap gap-y-6 md:gap-y-0">
-            
-            <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="w-full md:w-4/12 px-4 text-center"
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="w-full md:w-4/12 px-4 text-center"
             >
               <div className="relative flex flex-col min-w-0 break-words bg-white w-full shadow-xl rounded-3xl">
                 <div className="px-6 py-8 flex-auto">
@@ -98,12 +98,12 @@ const LandingPage = () => {
               </div>
             </motion.div>
 
-            <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
-                className="w-full md:w-4/12 px-4 text-center"
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="w-full md:w-4/12 px-4 text-center"
             >
               <div className="relative flex flex-col min-w-0 break-words bg-white w-full shadow-xl rounded-3xl">
                 <div className="px-6 py-8 flex-auto">
@@ -118,12 +118,12 @@ const LandingPage = () => {
               </div>
             </motion.div>
 
-            <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-                className="w-full md:w-4/12 px-4 text-center"
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="w-full md:w-4/12 px-4 text-center"
             >
               <div className="relative flex flex-col min-w-0 break-words bg-white w-full shadow-xl rounded-3xl">
                 <div className="px-6 py-8 flex-auto">
@@ -167,13 +167,13 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 pt-10 pb-6 text-slate-400">
         <div className="container mx-auto px-4 text-center">
-            <p className="font-medium text-sm">
-              &copy; {new Date().getFullYear()} Rapid Rescue - Emergency System. For demo purposes only.
-            </p>
+          <p className="font-medium text-sm">
+            &copy; {new Date().getFullYear()} Rapid Rescue - Emergency System. For demo purposes only.
+          </p>
         </div>
       </footer>
     </div>

@@ -3,10 +3,12 @@ import { motion } from 'framer-motion';
 import { Phone, ShieldAlert, Navigation, MoreVertical, X } from 'lucide-react';
 import MapView from '../components/MapComponent';
 import { useBookingStore } from '../store/useBookingStore';
+import { useLocationStore } from '../store/useLocationStore';
 import ambulanceDay from '../assets/ambulance-day.jpg';
 
 export default function TrackingPage({ onCancel }) {
     const { activeBookingId, selectedAmbulance } = useBookingStore();
+    const { userLocation, locationLoading } = useLocationStore();
     const [eta, setEta] = useState(selectedAmbulance?.eta || 5);
     const [distance, setDistance] = useState(selectedAmbulance?.distance || 1.2);
     
@@ -39,10 +41,9 @@ export default function TrackingPage({ onCancel }) {
 
             {/* Map Area */}
             <div className="flex-1 w-full bg-slate-300 z-0">
-                {/* Note: the true MapView component should be modified to accept routing props (origin, destination). 
-                    For now, it just shows the map. */}
                 <MapView 
-                    userLocation={{ lat: 40.7128, lng: -74.0060 }}
+                    userLocation={userLocation}
+                    locationLoading={locationLoading}
                     ambulances={selectedAmbulance ? [selectedAmbulance] : []}
                     onAmbulanceSelect={() => {}}
                 />
