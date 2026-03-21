@@ -14,10 +14,10 @@ const LandingPage = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-red-600 p-2 rounded-xl text-white">
+            <div className="bg-orange-600 p-2 rounded-xl text-white">
               <Stethoscope className="w-6 h-6" />
             </div>
-            <span className="font-extrabold text-xl tracking-tight text-slate-900">AmbuCare</span>
+            <span className="font-extrabold text-xl tracking-tight text-slate-900">MediRide</span>
           </div>
           <div>
             <button
@@ -25,7 +25,7 @@ const LandingPage = () => {
                 window.isClientNav = true;
                 navigate('/map');
               }}
-              className="bg-red-100 text-red-600 px-4 py-2 font-bold rounded-lg hover:bg-red-200 transition-colors"
+              className="bg-orange-100 text-orange-600 px-4 py-2 font-bold rounded-lg hover:bg-orange-200 transition-colors"
             >
               Emergency Now
             </button>
@@ -48,7 +48,7 @@ const LandingPage = () => {
                 className="pr-12"
               >
                 <h1 className="text-white font-black text-4xl leading-tight sm:text-6xl px-2">
-                  Fastest Way to Get an <span className="text-red-500">Ambulance</span>
+                  Fastest Way to Get an <span className="text-orange-500">Ambulance</span>
                 </h1>
                 <p className="mt-4 text-base sm:text-lg text-slate-200 font-medium px-4">
                   We detect your location instantly and match you with the nearest emergency vehicles. No account needed.
@@ -62,7 +62,7 @@ const LandingPage = () => {
                       window.isClientNav = true;
                       navigate('/map');
                     }}
-                    className="w-full sm:w-auto flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-red-600 hover:bg-red-700 md:py-5 md:text-xl md:px-10 shadow-lg shadow-red-600/30 transition-all group"
+                    className="w-full sm:w-auto flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-orange-600 hover:bg-orange-700 md:py-5 md:text-xl md:px-10 shadow-lg shadow-red-600/30 transition-all group"
                   >
                     Request Emergency Now
                     <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
@@ -156,7 +156,7 @@ const LandingPage = () => {
             </div>
 
             <div className="w-full md:w-4/12 px-4 mr-auto ml-auto mt-12 md:mt-0">
-              <div className="relative flex flex-col min-w-0 break-words w-full shadow-2xl rounded-3xl overflow-hidden bg-red-600">
+              <div className="relative flex flex-col min-w-0 break-words w-full shadow-2xl rounded-3xl overflow-hidden bg-orange-600">
                 <img
                   alt="Medical care parameters"
                   src={featureGlobe}
