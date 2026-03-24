@@ -34,7 +34,7 @@ const requestIcon = new L.Icon({
     shadowSize: [41, 41]
 });
 
-const defaultCenter = [40.7128, -74.0060];
+const defaultCenter = [0.3476, 32.5825];
 
 function ChangeView({ center }) {
   const map = useMap();

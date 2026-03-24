@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     patient_name TEXT NOT NULL,
     phone_number TEXT NOT NULL,
     emergency_description TEXT,
+    pickup_address TEXT NOT NULL,
     pickup_latitude REAL NOT NULL,
     pickup_longitude REAL NOT NULL,
     status TEXT DEFAULT 'PENDING', -- PENDING, ACCEPTED, DISPATCHED, COMPLETED, CANCELLED

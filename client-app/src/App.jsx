@@ -6,7 +6,7 @@ import AmbulanceCard from './components/AmbulanceCard';
 import AvailableUnitsList from './components/AvailableUnitsList';
 import BookingModal from './components/BookingModal';
 import TrackingPage from './pages/TrackingPage';
-import FeedbackPage from './pages/FeedbackPage';
+import FeedbackModal from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
 import { createBooking, getNearbyAmbulances } from './services/api';
 import { socketService } from './services/socket';
@@ -129,18 +129,6 @@ function EmergencyApp() {
 
   // --- RENDER LOGIC ---
 
-  // If trip is completed, show the Feedback Page
-  if (isTripCompleted) {
-    return (
-        <FeedbackPage 
-            ambulance={selectedAmbulance} 
-            onReturnHome={() => {
-                clearBooking();
-                navigate("/", { replace: true });
-            }} 
-        />
-    );
-  }
 
   // If there is an active booking, show the Tracking Page
   if (activeBookingId) {
@@ -168,10 +156,10 @@ function EmergencyApp() {
         </button>
 
         <div className="bg-white/80 backdrop-blur-xl p-3 md:px-5 py-3 rounded-3xl shadow-xl pointer-events-auto flex items-center gap-3 border border-white/40 shadow-red-500/10">
-           <div className="bg-red-500 p-2 md:p-2.5 rounded-xl text-white animate-pulse">
+           <div className="bg-orange-500 p-2 md:p-2.5 rounded-xl text-white animate-pulse">
                <Stethoscope className="w-4 h-4 md:w-5 md:h-5" />
            </div>
-           <span className="text-sm md:text-md text-red-600 font-bold tracking-tight">Rescue System</span>
+           <span className="text-sm md:text-md text-orange-600 font-bold tracking-tight">Rescue System</span>
         </div>
       </div>
 
@@ -210,6 +198,17 @@ function EmergencyApp() {
           onSubmit={handleBookingSubmit} 
         />
       )}
+      
+      {/* Feedback Modal (Pop-up) */}
+      <FeedbackModal 
+        isOpen={isTripCompleted}
+        bookingId={activeBookingId}
+        ambulance={selectedAmbulance}
+        onReturnHome={() => {
+            clearBooking();
+            navigate("/", { replace: true });
+        }}
+      />
       
       {/* Background overlay when modal is open */}
       {isBookingModalOpen && (

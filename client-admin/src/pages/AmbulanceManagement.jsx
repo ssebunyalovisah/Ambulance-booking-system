@@ -10,8 +10,8 @@ const AmbulanceManagement = () => {
     ambulance_number: '', 
     driver_name: '', 
     driver_contact: '',
-    lat: 40.7128,
-    lng: -74.0060 
+    lat: 0.3476,
+    lng: 32.5825 
   });
 
   const fetchAmbulances = async () => {
@@ -38,8 +38,8 @@ const AmbulanceManagement = () => {
         ambulance_number: '', 
         driver_name: '', 
         driver_contact: '',
-        lat: 40.7128,
-        lng: -74.0060 
+        lat: 0.3476,
+        lng: 32.5825 
       });
       fetchAmbulances();
     } catch (error) {
@@ -67,7 +67,7 @@ const AmbulanceManagement = () => {
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+          className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20 transition-all active:scale-95"
         >
           <Ambulance className="w-5 h-5" />
           Register New Unit
@@ -82,7 +82,7 @@ const AmbulanceManagement = () => {
             <input 
               type="text" 
               placeholder="Search units..." 
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-sm"
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -209,7 +209,7 @@ const AmbulanceManagement = () => {
                   required
                   value={newAmbulance.ambulance_number}
                   onChange={(e) => setNewAmbulance({...newAmbulance, ambulance_number: e.target.value})}
-                  className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
+                  className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
                   placeholder="e.g. UAS 123X"
                 />
               </div>
@@ -220,7 +220,7 @@ const AmbulanceManagement = () => {
                   required
                   value={newAmbulance.driver_name}
                   onChange={(e) => setNewAmbulance({...newAmbulance, driver_name: e.target.value})}
-                  className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
+                  className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
                   placeholder="Full name"
                 />
               </div>
@@ -231,7 +231,7 @@ const AmbulanceManagement = () => {
                   required
                   value={newAmbulance.driver_contact}
                   onChange={(e) => setNewAmbulance({...newAmbulance, driver_contact: e.target.value})}
-                  className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
+                  className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
                   placeholder="+256 700 000000"
                 />
               </div>
@@ -245,7 +245,7 @@ const AmbulanceManagement = () => {
                 </button>
                 <button 
                   type="submit"
-                  className="order-1 sm:order-2 flex-2 px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                  className="order-1 sm:order-2 flex-2 px-10 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold shadow-lg shadow-orange-600/20 transition-all active:scale-95"
                 >
                   Register Unit
                 </button>

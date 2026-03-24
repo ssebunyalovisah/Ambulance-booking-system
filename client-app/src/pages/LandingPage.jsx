@@ -62,7 +62,7 @@ const LandingPage = () => {
                       window.isClientNav = true;
                       navigate('/map');
                     }}
-                    className="w-full sm:w-auto flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-orange-600 hover:bg-orange-700 md:py-5 md:text-xl md:px-10 shadow-lg shadow-red-600/30 transition-all group"
+                    className="w-full sm:w-auto flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-orange-600 hover:bg-orange-700 md:py-5 md:text-xl md:px-10 shadow-lg shadow-orange-500/30 transition-all group"
                   >
                     Request Emergency Now
                     <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
@@ -107,7 +107,7 @@ const LandingPage = () => {
             >
               <div className="relative flex flex-col min-w-0 break-words bg-white w-full shadow-xl rounded-3xl">
                 <div className="px-6 py-8 flex-auto">
-                  <div className="text-white p-4 text-center inline-flex items-center justify-center w-16 h-16 mb-5 shadow-lg rounded-full bg-red-500">
+                  <div className="text-white p-4 text-center inline-flex items-center justify-center w-16 h-16 mb-5 shadow-lg rounded-full bg-orange-500">
                     <Clock className="w-8 h-8" />
                   </div>
                   <h6 className="text-xl font-bold text-slate-800">Ultra-Fast Response</h6>

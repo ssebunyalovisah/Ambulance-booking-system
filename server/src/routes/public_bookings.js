@@ -4,9 +4,10 @@ const db = require('../config/db');
 
 // Create a new booking
 router.post('/', async (req, res) => {
-  const { name, phone, description, lat, lng, payment } = req.body;
+  const { name, phone, description, address, lat, lng, payment } = req.body;
   const patient_name = name;
   const phone_number = phone;
+  const pickup_address = address;
   
   try {
       // For demo purposes, we'll assign the first company found if none is provided
@@ -18,8 +19,8 @@ router.post('/', async (req, res) => {
       }
 
       const result = await db.query(
-          'INSERT INTO bookings (company_id, patient_name, phone_number, emergency_description, pickup_latitude, pickup_longitude, payment_method) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-          [company_id, patient_name, phone_number, description, lat, lng, payment]
+          'INSERT INTO bookings (company_id, patient_name, phone_number, emergency_description, pickup_address, pickup_latitude, pickup_longitude, payment_method, payment_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [company_id, patient_name, phone_number, description, pickup_address, lat, lng, payment, 'PAID']
       );
 
       const booking_id = result.lastID;
@@ -29,10 +30,12 @@ router.post('/', async (req, res) => {
         patientName: patient_name,
         phone: phone_number,
         description,
+        address: pickup_address,
         lat,
         lng,
         status: 'PENDING',
-        paymentMethod: payment
+        paymentMethod: payment,
+        paymentStatus: 'PAID'
       };
 
       // Emit event to admins

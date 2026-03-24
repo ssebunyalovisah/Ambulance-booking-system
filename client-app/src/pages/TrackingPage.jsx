@@ -30,10 +30,10 @@ export default function TrackingPage({ onCancel }) {
             <div className="absolute top-0 left-0 right-0 z-10 p-4 md:p-6 pointer-events-none">
                 <div className="bg-white/90 backdrop-blur-xl shadow-lg border border-white/20 rounded-2xl p-4 flex justify-between items-center pointer-events-auto max-w-4xl mx-auto">
                     <div>
-                        <p className="text-red-600 font-bold text-xs tracking-wider uppercase mb-1">Emergency Dispatch Active</p>
+                        <p className="text-orange-600 font-bold text-xs tracking-wider uppercase mb-1">Emergency Dispatch Active</p>
                         <h1 className="text-slate-800 font-bold text-lg md:text-xl leading-none">Tracking Real-Time...</h1>
                     </div>
-                    <button onClick={onCancel} className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold transition">
+                    <button onClick={onCancel} className="bg-orange-50 hover:bg-orange-100 text-orange-600 px-4 py-2 rounded-xl text-sm font-bold transition">
                         Cancel Help
                     </button>
                 </div>
@@ -61,9 +61,9 @@ export default function TrackingPage({ onCancel }) {
                 <div className="p-5 md:p-8 flex flex-col h-full">
                     {/* ETA Hero Row */}
                     <div className="flex items-end gap-4 mb-6 pb-6 border-b border-slate-100">
-                        <div className="bg-red-50 p-4 rounded-2xl">
-                            <h2 className="text-red-600 font-black text-4xl md:text-5xl leading-none">{eta}</h2>
-                            <span className="text-red-800 font-bold text-sm">MINUTES</span>
+                        <div className="bg-orange-50 p-4 rounded-2xl">
+                            <h2 className="text-orange-600 font-black text-4xl md:text-5xl leading-none">{eta}</h2>
+                            <span className="text-orange-800 font-bold text-sm">MINUTES</span>
                         </div>
                         <div>
                             <p className="text-slate-500 font-medium md:text-lg mb-1">{distance} km remaining</p>
@@ -83,7 +83,7 @@ export default function TrackingPage({ onCancel }) {
                         <div className="flex-1">
                             <h4 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                                 {selectedAmbulance?.companyName || 'City Rescue Force'}
-                                <ShieldAlert className="w-4 h-4 text-red-500" />
+                                <ShieldAlert className="w-4 h-4 text-orange-500" />
                             </h4>
                             <p className="text-slate-500 font-medium text-sm">Plate: {selectedAmbulance?.plateNumber || 'EM-99X'}</p>
                             <div className="inline-flex mt-2 bg-slate-100 px-2 py-1 rounded text-xs font-bold text-slate-600 tracking-wide">

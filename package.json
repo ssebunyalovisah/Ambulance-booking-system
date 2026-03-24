@@ -1,0 +1,12 @@
+{
+  "name": "ambulance-booking-system",
+  "version": "1.0.0",
+  "description": "Ambulance Emergency Booking System",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client-app && npm install && cd ../client-admin && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:app": "cd client-app && npm run dev",
+    "dev:admin": "cd client-admin && npm run dev",
+    "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:app\" \"npm run dev:admin\""
+  }
+}

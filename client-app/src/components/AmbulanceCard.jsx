@@ -26,9 +26,15 @@ export default function AmbulanceCard({ ambulance, onRequest, onClose }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent flex flex-col justify-end p-5">
                     <h3 className="font-bold text-2xl text-white flex items-center gap-2 drop-shadow-md">
                         {ambulance.companyName}
-                        <ShieldAlert className="w-5 h-5 text-red-500 fill-red-500/20" />
+                        <ShieldAlert className="w-5 h-5 text-orange-500 fill-orange-500/20" />
                     </h3>
-                    <p className="text-white/80 text-sm font-medium mt-1 tracking-wide">UNIT: {ambulance.plateNumber}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <p className="text-white/80 text-sm font-medium tracking-wide">UNIT: {ambulance.plateNumber}</p>
+                        <div className="flex items-center gap-1 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white border border-white/20">
+                            <Star className="w-3 h-3 fill-orange-400 text-orange-400" />
+                            {ambulance.rating || '4.8'} ({ambulance.reviews || '12'})
+                        </div>
+                    </div>
                 </div>
                 
                 {/* Distance Badge floating top-right */}
@@ -49,8 +55,8 @@ export default function AmbulanceCard({ ambulance, onRequest, onClose }) {
 
             <div className="p-5">
                 <div className="flex gap-3 mb-5 text-sm font-semibold">
-                    <div className="flex flex-col items-center justify-center bg-red-50 text-red-700 p-3 rounded-2xl flex-1 border border-red-100">
-                        <Clock className="w-6 h-6 mb-1 text-red-600" />
+                    <div className="flex flex-col items-center justify-center bg-orange-50 text-orange-700 p-3 rounded-2xl flex-1 border border-orange-100">
+                        <Clock className="w-6 h-6 mb-1 text-orange-600" />
                         <span>{ambulance.eta} Min</span>
                     </div>
                     <div className="flex flex-col items-center justify-center bg-blue-50 text-blue-700 p-3 rounded-2xl flex-1 border border-blue-100">
@@ -65,7 +71,7 @@ export default function AmbulanceCard({ ambulance, onRequest, onClose }) {
 
                 <button 
                     onClick={onRequest}
-                    className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-4 rounded-2xl shadow-xl shadow-red-600/30 transition-all active:scale-[0.98] flex justify-center items-center gap-2 text-lg uppercase tracking-wide"
+                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-orange-500/30 transition-all active:scale-[0.98] flex justify-center items-center gap-2 text-lg uppercase tracking-wide"
                 >
                     Request Emergency Rescue
                 </button>

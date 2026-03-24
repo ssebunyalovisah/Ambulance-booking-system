@@ -32,6 +32,22 @@ const seed = async () => {
         );
 
         console.log('Default admin created successfully.');
+        
+        // 3. Create default ambulances
+        console.log('Registering default ambulances...');
+        const ambulances = [
+            { number: 'UAS 123G', driver: 'Ssendawula John', contact: '+256 700 111111', lat: 0.3476, lng: 32.5825 },
+            { number: 'UBH 456X', driver: 'Musoke Moses', contact: '+256 700 222222', lat: 0.3550, lng: 32.5780 },
+            { number: 'UBA 789M', driver: 'Nakato Sarah', contact: '+256 700 333333', lat: 0.3400, lng: 32.5900 }
+        ];
+
+        for (const amb of ambulances) {
+            await db.query(
+                "INSERT INTO ambulances (company_id, ambulance_number, driver_name, driver_contact, status, latitude, longitude) VALUES ($1, $2, $3, $4, 'AVAILABLE', $5, $6) ON CONFLICT (ambulance_number) DO NOTHING",
+                [companyId, amb.number, amb.driver, amb.contact, amb.lat, amb.lng]
+            );
+        }
+        console.log('Default available ambulances created.');
         console.log('-----------------------------------');
         console.log('Credentials:');
         console.log('Email: admin@cityrescue.com');

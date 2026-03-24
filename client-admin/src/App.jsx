@@ -8,6 +8,7 @@ import StatCards from './components/StatCards';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import AmbulanceManagement from './pages/AmbulanceManagement';
+import FeedbackManagement from './pages/FeedbackManagement';
 import { adminSocket } from './services/socket';
 import { useAuth } from './context/AuthContext';
 import api from './services/api';
@@ -112,7 +113,7 @@ function Layout({ children }) {
         {/* Mobile Header */}
         <header className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-50">
           <div className="flex items-center gap-2">
-            <div className="bg-red-600 p-1.5 rounded-lg text-white">
+            <div className="bg-orange-600 p-1.5 rounded-lg text-white">
               <Ambulance className="w-5 h-5" />
             </div>
             <span className="font-bold text-slate-900 tracking-tight">RescueAdmin</span>
@@ -153,6 +154,14 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <AmbulanceManagement />
+            </Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/feedback" element={
+          <ProtectedRoute>
+            <Layout>
+              <FeedbackManagement />
             </Layout>
           </ProtectedRoute>
         } />

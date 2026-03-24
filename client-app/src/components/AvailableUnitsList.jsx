@@ -33,12 +33,16 @@ export default function AvailableUnitsList({ ambulances, onSelect }) {
                                         <p className="font-bold text-slate-900 text-lg group-hover:text-blue-700 transition-colors">{amb.companyName || 'Rescue Unit'}</p>
                                         <div className="flex gap-2 mt-2">
                                             <span className="text-[10px] sm:text-xs bg-red-100 text-red-700 font-bold px-2 py-1 rounded-md flex items-center gap-1.5 uppercase tracking-wide">
-                                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                                                <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
                                                 {amb.eta || '?'} min
                                             </span>
                                             <span className="text-[10px] sm:text-xs bg-white text-slate-600 font-bold px-2 py-1 rounded-md border border-slate-200 flex items-center gap-1.5 uppercase tracking-wide">
                                                 <Navigation className="w-3 h-3 text-blue-500" />
                                                 {amb.distance || '?'} km
+                                            </span>
+                                            <span className="text-[10px] sm:text-xs bg-orange-50 text-orange-600 font-bold px-2 py-1 rounded-md border border-orange-100 flex items-center gap-1.5 uppercase tracking-wide">
+                                                <Star className="w-3 h-3 fill-orange-500 text-orange-500" />
+                                                {amb.rating || '4.8'}
                                             </span>
                                         </div>
                                     </div>

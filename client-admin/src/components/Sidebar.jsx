@@ -37,7 +37,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 isOpen ? 'translate-x-0' : '-translate-x-full'
             }`}>
                 <div className="p-6 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/20">
+                    <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/20">
                         <Ambulance className="text-white w-6 h-6" />
                     </div>
                     <div>
@@ -58,7 +58,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                             className={({ isActive }) => 
                                 `flex items-center justify-between p-3 rounded-xl transition-all group ${
                                     isActive 
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' 
                                     : 'hover:bg-slate-800/50 hover:text-white'
                                 }`
                             }
@@ -75,7 +75,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="p-4 mt-auto">
                     <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 space-y-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">
+                            <div className="w-10 h-10 bg-gradient-to-tr from-orange-600 to-orange-500 rounded-xl flex items-center justify-center text-white font-bold">
                                 {admin?.companyName?.[0] || 'A'}
                             </div>
                             <div className="flex-1 overflow-hidden">
@@ -89,7 +89,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                                 onClose();
                                 logout();
                             }}
-                            className="w-full flex items-center justify-center gap-2 p-2.5 bg-slate-700/50 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all text-xs font-semibold"
+                            className="w-full flex items-center justify-center gap-2 p-2.5 bg-slate-700/50 hover:bg-orange-500/10 hover:text-orange-400 rounded-xl transition-all text-xs font-semibold"
                         >
                             <LogOut className="w-4 h-4" />
                             Sign Out
