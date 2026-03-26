@@ -123,12 +123,12 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
 
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2 font-inter">
-                                        Pickup Address / Landmarks <span className="text-orange-500">*</span>
+                                        Pickup Address / Nearest Landmark <span className="text-orange-500">*</span>
                                     </label>
                                     <textarea 
                                         required
                                         rows="2"
-                                        className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all resize-none placeholder:text-slate-400 font-inter font-medium"
+                                        className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all resize-none placeholder:text-slate-400 font-inter font-medium"
                                         placeholder="Detailed address and nearest landmarks"
                                         value={formData.address}
                                         onChange={(e) => setFormData({...formData, address: e.target.value})}

@@ -18,6 +18,21 @@ exports.updateBookingStatus = async (req, res) => {
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Booking not found' });
         }
+
+        // Handle ambulance status changes
+        if (status === 'ACCEPTED' || status === 'DISPATCHED') {
+            const bookingResult = await db.query('SELECT ambulance_id FROM bookings WHERE id = $1', [id]);
+            const ambId = bookingResult.rows[0].ambulance_id;
+            if (ambId) {
+                await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['BUSY', ambId]);
+            }
+        } else if (status === 'COMPLETED' || status === 'CANCELLED') {
+            const bookingResult = await db.query('SELECT ambulance_id FROM bookings WHERE id = $1', [id]);
+            const ambId = bookingResult.rows[0].ambulance_id;
+            if (ambId) {
+                await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['AVAILABLE', ambId]);
+            }
+        }
         
         // Fetch full booking data for emitting
         const updated = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
@@ -33,6 +48,13 @@ exports.updateBookingStatus = async (req, res) => {
             
             // Also notify dashboard to update the lists
             io.to('company_dashboard').emit('booking_status_changed', booking);
+            
+            // If ambulance status changed, notify dashboard
+            const ambId = booking.ambulance_id;
+            if (ambId) {
+                const ambResult = await db.query('SELECT * FROM ambulances WHERE id = $1', [ambId]);
+                io.to('company_dashboard').emit('ambulance_status_changed', ambResult.rows[0]);
+            }
         }
         
         res.json(booking);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2, Ambulance } from 'lucide-react';
 
@@ -8,6 +8,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -17,10 +18,10 @@ const Login = () => {
     setError('');
     
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      setError(err.response?.data?.error || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
@@ -81,10 +82,15 @@ const Login = () => {
 
                     <div className="flex items-center justify-between text-sm">
                         <label className="flex items-center text-slate-400 cursor-pointer group">
-                            <input type="checkbox" className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500/50 focus:ring-offset-slate-800" />
+                            <input 
+                                type="checkbox" 
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-orange-600 focus:ring-orange-500/50 focus:ring-offset-slate-800" 
+                            />
                             <span className="ml-2 group-hover:text-slate-300 transition-colors">Remember me</span>
                         </label>
-                        <a href="#" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">Forgot Password?</a>
+                        <Link to="/forgot-password" className="text-orange-400 hover:text-orange-300 transition-colors font-medium">Forgot Password?</Link>
                     </div>
 
                     <button
@@ -105,7 +111,7 @@ const Login = () => {
 
                 <div className="mt-8 pt-8 border-t border-slate-700/50 text-center">
                     <p className="text-slate-500 text-sm">
-                        Not a registered ambulance company? <a href="#" className="text-blue-400 font-medium">Apply Now</a>
+                        Not a registered ambulance company? <button onClick={() => navigate('/signup')} className="text-orange-400 font-medium hover:text-orange-300">Register Now</button>
                     </p>
                 </div>
             </div>

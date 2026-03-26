@@ -17,7 +17,7 @@ export default function FeedbackModal({ bookingId, ambulance, isOpen, onReturnHo
         e.preventDefault();
         setIsLoading(true);
         try {
-            await api.post('/feedback', {
+            await api.post('/public/feedback', {
                 booking_id: bookingId,
                 rating,
                 comments: comment

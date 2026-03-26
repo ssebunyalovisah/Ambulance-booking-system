@@ -8,19 +8,20 @@ import {
   CreditCard, 
   MessageSquare, 
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Radio
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
     const { admin, logout } = useAuth();
 
     const navItems = [
-        { icon: LayoutDashboard, label: 'Dispatch Center', path: '/' },
+        { icon: LayoutDashboard, label: 'Overview', path: '/' },
+        { icon: Bell, label: 'Incoming Requests', path: '/requests' },
         { icon: Ambulance, label: 'Fleet Management', path: '/ambulances' },
+        { icon: Radio, label: 'Live Tracking', path: '/tracking' },
         { icon: CreditCard, label: 'Payments', path: '/payments' },
-        { icon: MessageSquare, label: 'Service Feedback', path: '/feedback' },
-        { icon: Bell, label: 'Notifications', path: '/notifications' },
-        { icon: Settings, label: 'Company Settings', path: '/settings' },
+        { icon: MessageSquare, label: 'Feedback & Ratings', path: '/feedback' },
     ];
 
     return (
@@ -76,10 +77,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 space-y-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-tr from-orange-600 to-orange-500 rounded-xl flex items-center justify-center text-white font-bold">
-                                {admin?.companyName?.[0] || 'A'}
+                                {admin?.name?.[0]?.toUpperCase() || 'A'}
                             </div>
                             <div className="flex-1 overflow-hidden">
-                                <p className="text-sm font-bold text-white truncate">{admin?.companyName || 'Admin'}</p>
+                                <p className="text-sm font-bold text-white truncate">{admin?.name || 'Admin'}</p>
                                 <p className="text-[10px] text-slate-500 truncate">{admin?.email}</p>
                             </div>
                         </div>

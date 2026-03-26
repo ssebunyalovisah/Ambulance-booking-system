@@ -1,10 +1,17 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api';
+
+const api = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        'Content-Type': 'application/json'
+    }
+});
 
 export const getNearbyAmbulances = async (lat, lng, radius = 5) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/public/ambulances/nearby`, {
+        const response = await api.get('/public/ambulances/nearby', {
             params: { lat, lng, radius }
         });
         return response.data;
@@ -16,7 +23,7 @@ export const getNearbyAmbulances = async (lat, lng, radius = 5) => {
 
 export const createBooking = async (bookingData) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/public/bookings`, bookingData);
+        const response = await api.post('/public/bookings', bookingData);
         return response.data;
     } catch (error) {
         console.error("Error creating booking", error);
@@ -26,10 +33,12 @@ export const createBooking = async (bookingData) => {
 
 export const checkBookingStatus = async (bookingId) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/public/bookings/${bookingId}`);
+        const response = await api.get(`/public/bookings/${bookingId}`);
         return response.data;
     } catch (error) {
         console.error("Status check failed", error);
         throw error;
     }
 };
+
+export default api;

@@ -34,6 +34,7 @@ const authRoutes = require('./routes/auth');
 const ambulanceRoutes = require('./routes/ambulances');
 const adminBookingRoutes = require('./routes/admin_bookings');
 const feedbackRoutes = require('./routes/feedback');
+const paymentRoutes = require('./routes/payments');
 
 // Make io accessible to our router
 app.set('io', io);
@@ -45,6 +46,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin/ambulances', ambulanceRoutes);
 app.use('/api/admin/bookings', adminBookingRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Root route for info
 app.get('/', (req, res) => {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -28,11 +28,30 @@ api.interceptors.response.use(
     (response) => {
         return response;
     },
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            localStorage.removeItem('adminToken');
-            // Redirect to login or handle as needed
-            window.location.href = '/login';
+    async (error) => {
+        const originalRequest = error.config;
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            const refreshToken = localStorage.getItem('adminRefreshToken');
+            if (refreshToken) {
+                try {
+                    const res = await axios.post(`${API_BASE_URL}/auth/refresh-token`, { token: refreshToken });
+                    const { accessToken, refreshToken: newRefreshToken } = res.data;
+                    localStorage.setItem('adminToken', accessToken);
+                    localStorage.setItem('adminRefreshToken', newRefreshToken);
+                    api.defaults.headers.Authorization = `Bearer ${accessToken}`;
+                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    console.error('Refresh token expired', refreshError);
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminRefreshToken');
+                    window.location.href = '/login';
+                }
+            } else {
+                localStorage.removeItem('adminToken');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

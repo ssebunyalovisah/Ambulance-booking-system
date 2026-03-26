@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Clock, Navigation, Phone, ShieldAlert, DollarSign, X } from 'lucide-react';
+import { Clock, Navigation, Phone, ShieldAlert, DollarSign, X, Star } from 'lucide-react';
 import ambulanceNight from '../assets/ambulance-night.jpg';
 import ambulanceDay from '../assets/ambulance-day.jpg';
 
@@ -65,7 +65,7 @@ export default function AmbulanceCard({ ambulance, onRequest, onClose }) {
                     </div>
                     <div className="flex flex-col items-center justify-center bg-emerald-50 text-emerald-700 p-3 rounded-2xl flex-1 border border-emerald-100">
                         <DollarSign className="w-6 h-6 mb-1 text-emerald-600" />
-                        <span>Est. $150</span>
+                        <span className="font-bold">UGX 150k</span>
                     </div>
                 </div>
 

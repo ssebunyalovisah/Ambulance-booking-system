@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
 class SocketService {
     constructor() {
@@ -37,6 +37,12 @@ class SocketService {
     onBookingUpdate(callback) {
         if (this.socket) {
             this.socket.on('booking_status_update', callback);
+        }
+    }
+
+    emitPatientLocation(bookingId, location) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('update_patient_location', { booking_id: bookingId, location });
         }
     }
 

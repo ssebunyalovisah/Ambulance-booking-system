@@ -13,10 +13,10 @@ export const AuthProvider = ({ children }) => {
             if (token) {
                 try {
                     const response = await api.get('/auth/me');
-                    setAdmin(response.data.admin);
+                    setAdmin(response.data);
                 } catch (error) {
                     console.error('Auth verification failed', error);
-                    localStorage.removeItem('adminToken');
+                    // Interceptor will handle logout if refresh fails
                 }
             }
             setLoading(false);
@@ -24,22 +24,37 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    const login = async (email, password) => {
-        const response = await api.post('/auth/login', { email, password });
-        const { token, admin } = response.data;
-        localStorage.setItem('adminToken', token);
+    const login = async (email, password, rememberMe) => {
+        const response = await api.post('/auth/login', { email, password, rememberMe });
+        const { accessToken, refreshToken, admin } = response.data;
+        localStorage.setItem('adminToken', accessToken);
+        if (refreshToken) {
+            localStorage.setItem('adminRefreshToken', refreshToken);
+        }
         setAdmin(admin);
         return admin;
     };
 
-    const logout = () => {
+    const signup = async (userData) => {
+        const response = await api.post('/auth/signup', userData);
+        return response.data;
+    };
+
+    const logout = async () => {
+        const token = localStorage.getItem('adminRefreshToken');
+        try {
+            await api.post('/auth/logout', { token });
+        } catch (err) {
+            console.error('Logout error', err);
+        }
         localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminRefreshToken');
         setAdmin(null);
         window.location.href = '/login';
     };
 
     return (
-        <AuthContext.Provider value={{ admin, login, logout, loading }}>
+        <AuthContext.Provider value={{ admin, login, signup, logout, loading }}>
             {!loading && children}
         </AuthContext.Provider>
     );

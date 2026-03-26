@@ -30,21 +30,21 @@ Patients should not be required to create an account or login before requesting 
 2 Location Detection
 
 The system must:
-	•	Automatically detect the user’s GPS location
-	•	Display the location on Google Maps
-	•	Show nearby available ambulances
+	- Automatically detect the user's GPS location
+	- Display the location on a Leaflet map (using React-Leaflet and OpenStreetMap tiles)
+	- Show nearby available ambulances as markers on the map
 
 ⸻
 
 3 Ambulance Selection
 
 Users must be able to:
-	•	View ambulances from different companies
-	•	See ambulance cards showing:
-	•	Company name
-	•	Estimated arrival time
-	•	Distance from user
-	•	Price estimate
+	- View ambulances from different companies
+	- See ambulance cards showing:
+	- Company name
+	- Estimated arrival time
+	- Distance from user
+	- Price estimate
 
 Users can then select an ambulance.
 
@@ -53,10 +53,10 @@ Users can then select an ambulance.
 4 Booking Popup Form
 
 After selecting an ambulance, a popup form should appear asking for:
-	•	Patient Name
-	•	Phone Number
-	•	Emergency Description (required)
-	•	Payment Method
+	- Patient Name
+	- Phone Number
+	- Emergency Description (required)
+	- Payment Method
 
 After submission, the system should create a booking request.
 
@@ -67,24 +67,24 @@ After submission, the system should create a booking request.
 After booking:
 
 The patient should see a tracking page showing:
-	•	Ambulance moving in real-time on Google Maps
-	•	Estimated arrival time
-	•	Distance remaining
+	- Ambulance moving in real-time on a Leaflet map (using React-Leaflet with OpenStreetMap tiles)
+	- Estimated arrival time
+	- Distance remaining
 
-The patient’s location must also be shared in real-time with the ambulance company.
+The patient's location must also be shared in real-time with the ambulance company.
 
 Use technologies such as:
-	•	WebSockets
-	•	Firebase
-	•	Socket.io
+	- WebSockets
+	- Firebase
+	- Socket.io
 
 ⸻
 
 6 Ratings and Feedback
 
 After the trip is completed, the user should be able to:
-	•	Rate the ambulance service
-	•	Leave feedback
+	- Rate the ambulance service
+	- Leave feedback
 
 ⸻
 
@@ -94,10 +94,10 @@ Design a modern and professional interface.
 
 Required Pages:
 	1.	Landing Page
-	2.	Map Page (show nearby ambulances)
+	2.	Map Page (show nearby ambulances using React-Leaflet)
 	3.	Ambulance selection cards
 	4.	Booking popup form
-	5.	Real-time tracking page
+	5.	Real-time tracking page (Leaflet map with live marker updates)
 	6.	Rating and feedback page
 
 We also have UI design images/screenshots.
@@ -110,11 +110,11 @@ Backend Communication
 The client app should communicate with the backend through REST APIs.
 
 Examples:
-	•	Request nearby ambulances
-	•	Create booking
-	•	Send patient location
-	•	Get ambulance location
-	•	Submit feedback
+	- Request nearby ambulances
+	- Create booking
+	- Send patient location
+	- Get ambulance location
+	- Submit feedback
 
 ⸻
 
@@ -126,7 +126,7 @@ Provide:
 	3.	UI page structure
 	4.	API integration plan
 	5.	Real-time tracking implementation
-	6.	Google Maps integration
+	6.	Leaflet map integration (React-Leaflet + OpenStreetMap — no API key required)
 	7.	State management approach
 	8.	Best UI component design
 

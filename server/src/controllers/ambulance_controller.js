@@ -93,3 +93,59 @@ exports.updateLocation = async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 };
+
+exports.deleteAmbulance = async (req, res) => {
+    const { id } = req.params;
+    const { company_id } = req.admin;
+
+    try {
+        const result = await db.query(
+            'DELETE FROM ambulances WHERE id = $1 AND company_id = $2',
+            [id, company_id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Ambulance not found or unauthorized' });
+        }
+
+        res.json({ message: 'Ambulance deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.updateAmbulance = async (req, res) => {
+    const { id } = req.params;
+    const { ambulance_number, driver_name, driver_contact, status, lat, lng } = req.body;
+    const { company_id } = req.admin;
+
+    try {
+        const result = await db.query(
+            `UPDATE ambulances 
+             SET ambulance_number = COALESCE($1, ambulance_number),
+                 driver_name = COALESCE($2, driver_name),
+                 driver_contact = COALESCE($3, driver_contact),
+                 status = COALESCE($4, status),
+                 latitude = COALESCE($5, latitude),
+                 longitude = COALESCE($6, longitude)
+             WHERE id = $7 AND company_id = $8`,
+            [ambulance_number, driver_name, driver_contact, status, lat, lng, id, company_id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Ambulance not found or unauthorized' });
+        }
+
+        const updated = await db.query(
+            'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances WHERE id = $1',
+            [id]
+        );
+
+        res.json(updated.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+

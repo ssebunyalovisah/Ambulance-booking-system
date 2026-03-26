@@ -21,8 +21,14 @@ const userIcon = new L.Icon({
     shadowSize: [41, 41]
 });
 
-const ambulanceIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/1048/1048314.png',
+const ambulanceIcon = new L.DivIcon({
+    className: 'custom-ambulance-icon',
+    html: `
+        <div class="relative flex items-center justify-center">
+            <div class="absolute w-10 h-10 bg-white rounded-full shadow-lg border-2 border-orange-500 animate-pulse-slow"></div>
+            <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" class="w-6 h-6 z-10 relative" />
+        </div>
+    `,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
 });
@@ -38,18 +44,19 @@ function ChangeView({ center, zoom }) {
   return null;
 }
 
-export default function MapView({ onAmbulanceSelect, ambulances, userLocation, locationLoading }) {
+export default function MapView({ onAmbulanceSelect, ambulances, userLocation, locationLoading, trackingMode = false }) {
   // Don't render map until we have a real location
   if (locationLoading || !userLocation) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100">
-        <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-2xl shadow-lg">
-          <div className="relative w-14 h-14">
-            <div className="absolute inset-0 rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin" />
+        <div className="flex flex-col items-center gap-4 p-8 bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/40">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-blue-50/50" />
+            <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
           </div>
           <div className="text-center">
-            <p className="font-bold text-slate-700 text-lg">Getting Your Location</p>
-            <p className="text-slate-400 text-sm mt-1">Please allow location access when prompted</p>
+            <p className="font-black text-slate-800 text-xl tracking-tight">Locating You...</p>
+            <p className="text-slate-400 text-xs mt-2 font-bold uppercase tracking-widest">Ensuring rapid response accuracy</p>
           </div>
         </div>
       </div>
@@ -57,16 +64,17 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation, l
   }
 
   return (
-    <div className="w-full h-full z-0">
+    <div className="w-full h-full z-0 relative">
         <MapContainer 
             center={userLocation} 
-            zoom={14} 
+            zoom={trackingMode ? 16 : 14} 
             style={{ height: '100%', width: '100%' }}
             zoomControl={false}
+            className="z-0"
         >
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             
             <ChangeView center={userLocation} zoom={14} />

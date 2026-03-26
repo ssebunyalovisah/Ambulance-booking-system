@@ -19,12 +19,33 @@ The system should be secure and accessible only to authenticated administrators.
 
 # Authentication
 
-Admins must login before accessing the dashboard.
+The authentication system must include two distinct flows:
+
+### Sign Up (New Account Creation)
+New admins must register with:
+- Full Name
+- Company Name
+- Email Address
+- Password
+- Confirm Password
+- Role Assignment (Super Admin / Admin)
+
+### Login (Returning Users)
+Returning admins log in with:
+- Email Address
+- Password
+- **Remember Me** checkbox — stores a persistent session token (e.g. via httpOnly cookie or localStorage JWT with extended expiry) so the user remains logged in across browser sessions
+
+Additional login features:
+- Forgot Password / Reset Password link
+- Session timeout with auto-logout after inactivity
+- "Stay signed in for 30 days" option when Remember Me is checked
 
 Use secure authentication such as:
-
-- JWT authentication
-- Role-based access
+- JWT authentication (short-lived access tokens + long-lived refresh tokens)
+- Role-based access control (RBAC)
+- Refresh token rotation for persistent sessions
+- Secure httpOnly cookies for Remember Me token storage
 
 ---
 
@@ -112,13 +133,14 @@ Admins should be able to view:
 
 Design a professional admin dashboard with pages such as:
 
-1. Admin Login Page
-2. Dashboard Overview
-3. Ambulance Management Page
-4. Booking Requests Page
-5. Real-Time Tracking Map
-6. Payment Management Page
-7. Ratings & Feedback Page
+1. Admin Sign Up Page
+2. Admin Login Page (with Remember Me option)
+3. Dashboard Overview
+4. Ambulance Management Page
+5. Booking Requests Page
+6. Real-Time Tracking Map
+7. Payment Management Page
+8. Ratings & Feedback Page
 
 We also have UI images/screenshots.  
 Analyze the images and place them in the correct dashboard sections.
@@ -163,12 +185,28 @@ Design database tables such as:
 - Locations
 - Payments
 - Feedback
+- RefreshTokens *(new — stores persistent Remember Me tokens per user)*
 
 Provide:
 
 - Table structures
 - Relationships
 - Primary and foreign keys
+
+---
+
+# API Endpoints — Authentication
+
+Include the following auth endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/auth/signup | Register a new admin |
+| POST | /api/auth/login | Login with Remember Me support |
+| POST | /api/auth/logout | Invalidate session / refresh token |
+| POST | /api/auth/refresh-token | Issue new access token using refresh token |
+| POST | /api/auth/forgot-password | Send password reset email |
+| POST | /api/auth/reset-password | Reset password via token |
 
 ---
 
@@ -183,5 +221,3 @@ Provide:
 5. Folder structure
 6. Real-time tracking implementation
 7. Security considerations
-
-The solution should be designed as a scalable real-world ambulance dispatch system.

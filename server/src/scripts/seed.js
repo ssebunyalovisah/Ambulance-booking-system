@@ -36,9 +36,11 @@ const seed = async () => {
         // 3. Create default ambulances
         console.log('Registering default ambulances...');
         const ambulances = [
-            { number: 'UAS 123G', driver: 'Ssendawula John', contact: '+256 700 111111', lat: 0.3476, lng: 32.5825 },
-            { number: 'UBH 456X', driver: 'Musoke Moses', contact: '+256 700 222222', lat: 0.3550, lng: 32.5780 },
-            { number: 'UBA 789M', driver: 'Nakato Sarah', contact: '+256 700 333333', lat: 0.3400, lng: 32.5900 }
+            { number: 'UAS 123G', driver: 'Ssendawula John', contact: '+256 700 111111', lat: 0.355, lng: 32.585 },
+            { number: 'UBH 456X', driver: 'Musoke Moses', contact: '+256 700 222222', lat: 0.345, lng: 32.575 },
+            { number: 'UBA 789M', driver: 'Nakato Sarah', contact: '+256 700 333333', lat: 0.335, lng: 32.595 },
+            { number: 'UCN 101Z', driver: 'Okello David', contact: '+256 700 444444', lat: 0.365, lng: 32.565 },
+            { number: 'UFE 202K', driver: 'Atwine Prossy', contact: '+256 700 555555', lat: 0.325, lng: 32.605 }
         ];
 
         for (const amb of ambulances) {

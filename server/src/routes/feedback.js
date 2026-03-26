@@ -11,29 +11,15 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        // Check if feedback already exists for this booking
-        const existing = await new Promise((resolve, reject) => {
-            db.get('SELECT id FROM feedback WHERE booking_id = ?', [booking_id], (err, row) => {
-                if (err) reject(err);
-                resolve(row);
-            });
-        });
-
-        if (existing) {
+        const existing = await db.query('SELECT id FROM feedback WHERE booking_id = $1', [booking_id]);
+        if (existing.rowCount > 0) {
             return res.status(400).json({ message: 'Feedback already submitted for this booking' });
         }
 
-        // Insert feedback
-        await new Promise((resolve, reject) => {
-            db.run(
-                'INSERT INTO feedback (booking_id, rating, comments) VALUES (?, ?, ?)',
-                [booking_id, rating, comments],
-                (err) => {
-                    if (err) reject(err);
-                    resolve();
-                }
-            );
-        });
+        await db.query(
+            'INSERT INTO feedback (booking_id, rating, comments) VALUES ($1, $2, $3)',
+            [booking_id, rating, comments]
+        );
 
         res.status(201).json({ message: 'Feedback submitted successfully' });
     } catch (error) {
@@ -43,34 +29,20 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/admin/feedback - Get all feedback (Admin)
-// For simplicity, we'll put this in the same file but it could be separated
-router.get('/admin/all', async (req, res) => {
+const auth = require('../middlewares/auth');
+router.get('/admin/all', auth, async (req, res) => {
+    const { company_id } = req.admin;
     try {
-        const query = `
-            主选择 feedback.*, bookings.patient_name, ambulances.ambulance_number, ambulances.driver_name
-            FROM feedback 
-            JOIN bookings ON feedback.booking_id = bookings.id
-            LEFT JOIN ambulances ON bookings.ambulance_id = ambulances.id
-            ORDER BY feedback.created_at DESC
-        `;
-        // Wait, SQLite doesn't support "主选择" (Translate Chinese keyword mistake by AI thought)
-        // Correcting: SELECT
         const sql = `
-            SELECT feedback.*, bookings.patient_name, ambulances.ambulance_number, ambulances.driver_name
-            FROM feedback 
-            JOIN bookings ON feedback.booking_id = bookings.id
-            LEFT JOIN ambulances ON bookings.ambulance_id = ambulances.id
-            ORDER BY feedback.created_at DESC
+            SELECT f.*, b.patient_name, a.ambulance_number, a.driver_name
+            FROM feedback f
+            JOIN bookings b ON f.booking_id = b.id
+            LEFT JOIN ambulances a ON b.ambulance_id = a.id
+            WHERE b.company_id = $1
+            ORDER BY f.created_at DESC
         `;
-
-        const feedback = await new Promise((resolve, reject) => {
-            db.all(sql, [], (err, rows) => {
-                if (err) reject(err);
-                resolve(rows);
-            });
-        });
-
-        res.json(feedback);
+        const result = await db.query(sql, [company_id]);
+        res.json(result.rows);
     } catch (error) {
         console.error('Error fetching feedback:', error);
         res.status(500).json({ message: 'Internal server error' });

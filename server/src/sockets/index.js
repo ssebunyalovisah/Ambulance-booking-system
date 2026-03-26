@@ -20,6 +20,12 @@ module.exports = (io) => {
       // Also broadcast to the main dashboard
       io.to('company_dashboard').emit('ambulance_live_location', data);
     });
+
+    // Patient updates location for the booking
+    socket.on('update_patient_location', (data) => {
+      // Broadcast to the company dashboard
+      io.to('company_dashboard').emit('patient_live_location', data);
+    });
     
     // Admin joins main dashboard
     socket.on('join_dashboard', () => {

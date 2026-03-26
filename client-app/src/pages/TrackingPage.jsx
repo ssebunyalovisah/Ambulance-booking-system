@@ -40,12 +40,13 @@ export default function TrackingPage({ onCancel }) {
             </div>
 
             {/* Map Area */}
-            <div className="flex-1 w-full bg-slate-300 z-0">
+            <div className="flex-1 w-full bg-slate-300 z-0 relative">
                 <MapView 
                     userLocation={userLocation}
                     locationLoading={locationLoading}
                     ambulances={selectedAmbulance ? [selectedAmbulance] : []}
                     onAmbulanceSelect={() => {}}
+                    trackingMode={true}
                 />
             </div>
 

@@ -166,7 +166,7 @@ export default function FeedbackManagement() {
                                         </td>
                                         <td className="px-8 py-6">
                                             <p className="text-slate-600 font-medium leading-relaxed max-w-md italic">
-                                                "{item.comments}"
+                                                &ldquo;{item.comments}&rdquo;
                                             </p>
                                         </td>
                                     </tr>

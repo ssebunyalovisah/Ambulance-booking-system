@@ -102,11 +102,19 @@ function EmergencyApp() {
        socketService.onLocationSync((data) => {
            console.log("Real-time movement received:", data);
        });
-    }
 
-    return () => {
-        socketService.disconnect();
-    };
+       // 3. Share Patient Location in Real-time
+       const locationInterval = setInterval(() => {
+           if (userLocation) {
+               socketService.emitPatientLocation(activeBookingId, userLocation);
+           }
+       }, 5000); // Every 5s
+
+       return () => {
+           clearInterval(locationInterval);
+           socketService.disconnect();
+       };
+    }
   }, [activeBookingId, setActiveBooking, completeTrip]);
 
   const handleBookingSubmit = async (formData) => {
@@ -220,14 +228,16 @@ function EmergencyApp() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/map" element={<EmergencyApp />} />
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <BrowserRouter suppressHydrationWarning>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/map" element={<EmergencyApp />} />
+          {/* Fallback route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 

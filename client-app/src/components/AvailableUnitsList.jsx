@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Star } from 'lucide-react';
 
 export default function AvailableUnitsList({ ambulances, onSelect }) {
     const hasAmbulances = ambulances && ambulances.length > 0;

@@ -1,80 +1,166 @@
-import { Activity, Clock, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, MapPin, Phone, User, Ambulance, X, Check, ChevronDown } from 'lucide-react';
 
-export default function RequestsBoard({ requests, onAccept, onReject }) {
-    
-    // Status color mapping
-    const getStatusStyle = (status) => {
-        switch(status) {
-            case 'PENDING': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'ACCEPTED': return 'bg-orange-100 text-orange-800 border-orange-200';
-            case 'COMPLETED': return 'bg-green-100 text-green-800 border-green-200';
-            default: return 'bg-slate-100 text-slate-800 border-slate-200';
+export default function RequestsBoard({ requests, onAccept, onReject, availableAmbulances = [] }) {
+    const [dispatchingId, setDispatchingId] = useState(null);
+    const [selectedAmbulance, setSelectedAmbulance] = useState({});
+
+    const handleDispatchClick = (reqId) => {
+        setDispatchingId(reqId);
+        // Default to first available ambulance
+        if (availableAmbulances.length > 0 && !selectedAmbulance[reqId]) {
+            setSelectedAmbulance(prev => ({ ...prev, [reqId]: availableAmbulances[0].id }));
         }
     };
 
+    const handleConfirmDispatch = (reqId) => {
+        const ambulanceId = selectedAmbulance[reqId];
+        onAccept(reqId, ambulanceId);
+        setDispatchingId(null);
+    };
+
+    const handleCancelDispatch = () => {
+        setDispatchingId(null);
+    };
+
+    if (requests.length === 0) {
+        return (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center min-h-[200px]">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                    <Ambulance className="w-6 h-6 text-slate-400" />
+                </div>
+                <p className="text-slate-500 font-medium">No pending requests</p>
+                <p className="text-slate-400 text-sm mt-1">New emergency calls will appear here instantly</p>
+                <div className="flex items-center gap-2 text-xs text-slate-400 mt-4">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                    </span>
+                    Listening for emergency calls...
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-800 font-inter">Live Emergency Requests</h2>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+            <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-slate-800">Pending Requests</h2>
+                <div className="flex items-center gap-2 text-xs text-slate-500 bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-full">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                     </span>
-                    Listening for updates...
+                    <span className="font-semibold text-orange-600">{requests.length} Active</span>
                 </div>
             </div>
 
             <div className="space-y-4">
                 {requests.map(req => (
-                    <div key={req.id} className="border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition group">
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <h3 className="font-bold text-lg text-slate-800 leading-tight">{req.patientName}</h3>
-                                <p className="text-slate-500 font-medium text-sm">{req.phone}</p>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-center mb-3">
+                    <div key={req.id} className="border border-slate-200 rounded-xl p-4 hover:border-orange-200 hover:bg-orange-50/30 transition-all group">
+                        {/* Patient Info */}
+                        <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-[10px] font-bold border border-green-200">PAID</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{req.paymentMethod === 'momo' ? 'Mobile Money' : 'Card'}</span>
+                                <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center">
+                                    <User className="w-4 h-4 text-red-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 leading-tight text-sm">
+                                        {req.patient_name || 'Unknown Patient'}
+                                    </h3>
+                                    <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                                        <Phone className="w-3 h-3" />
+                                        {req.phone_number}
+                                    </div>
+                                </div>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${getStatusStyle(req.status)}`}>
-                                {req.status}
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-orange-100 text-orange-600 px-2 py-1 rounded-md border border-orange-200">
+                                PENDING
                             </span>
                         </div>
-                        
-                        <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-700 mb-4 border border-slate-100 space-y-2">
-                            <div><strong>Emergency:</strong> {req.description}</div>
-                            {req.address && (
-                                <div className="pt-2 border-t border-slate-200/60 font-medium text-slate-600">
-                                    <strong>Pickup Location:</strong> {req.address}
-                                </div>
-                            )}
-                        </div>
 
-                        {req.status === 'PENDING' ? (
-                            <div className="grid grid-cols-2 gap-3 mt-4">
-                                <button 
-                                    onClick={() => onReject(req.id)}
-                                    className="py-2.5 rounded-lg border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 transition"
-                                >
-                                    Decline
-                                </button>
-                                <button 
-                                    onClick={() => onAccept(req.id)}
-                                    className="py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md shadow-orange-600/20 transition"
-                                >
-                                    Dispatch Unit
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex justify-end mt-2">
-                                <span className="text-xs text-slate-400 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Dispatched to Unit NY-112
-                                </span>
+                        {/* Emergency Description */}
+                        {req.emergency_description && (
+                            <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">
+                                <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">Emergency</p>
+                                <p className="text-sm text-red-800 leading-snug">{req.emergency_description}</p>
                             </div>
                         )}
+
+                        {/* Location */}
+                        {req.pickup_address && (
+                            <div className="flex items-start gap-2 text-xs text-slate-500 mb-4">
+                                <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-400" />
+                                <span className="truncate">{req.pickup_address}</span>
+                            </div>
+                        )}
+
+                        {/* Dispatch Selector */}
+                        {dispatchingId === req.id ? (
+                            <div className="space-y-3 pt-1">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1.5">
+                                        Assign Ambulance Unit
+                                    </label>
+                                    {availableAmbulances.length === 0 ? (
+                                        <p className="text-xs text-red-500 font-medium bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
+                                            ⚠ No available units. Mark an ambulance as available first.
+                                        </p>
+                                    ) : (
+                                        <div className="relative">
+                                            <select
+                                                value={selectedAmbulance[req.id] || ''}
+                                                onChange={(e) => setSelectedAmbulance(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                                className="w-full appearance-none bg-slate-50 border-2 border-slate-200 focus:border-orange-500 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 outline-none pr-8 cursor-pointer"
+                                            >
+                                                {availableAmbulances.map(amb => (
+                                                    <option key={amb.id} value={amb.id}>
+                                                        {amb.ambulance_number} — {amb.driver_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleCancelDispatch}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-slate-200 font-semibold text-slate-500 hover:bg-slate-50 transition text-sm"
+                                    >
+                                        <X className="w-4 h-4" /> Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => handleConfirmDispatch(req.id)}
+                                        disabled={availableAmbulances.length === 0}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-md shadow-orange-600/20 transition text-sm"
+                                    >
+                                        <Check className="w-4 h-4" /> Confirm Dispatch
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => onReject(req.id)}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-slate-200 font-semibold text-slate-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition text-sm"
+                                >
+                                    <X className="w-4 h-4" /> Decline
+                                </button>
+                                <button
+                                    onClick={() => handleDispatchClick(req.id)}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md shadow-orange-600/20 transition text-sm"
+                                >
+                                    <Ambulance className="w-4 h-4" /> Dispatch
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Timestamp */}
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-3 pt-2 border-t border-slate-100">
+                            <Clock className="w-3 h-3" />
+                            {req.created_at ? new Date(req.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Just now'}
+                        </div>
                     </div>
                 ))}
             </div>
