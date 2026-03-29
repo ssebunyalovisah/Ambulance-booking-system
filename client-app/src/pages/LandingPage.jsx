@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Stethoscope, Clock, MapPin, ShieldAlert, ArrowRight } from 'lucide-react';
-import heroBg from '../assets/hero-bg.jpg';
+import heroBg from '../assets/Ambulance.jpg';
 import featureGlobe from '../assets/feature-globe.jpg';
 
 const LandingPage = () => {

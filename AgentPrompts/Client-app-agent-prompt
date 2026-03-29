@@ -93,7 +93,7 @@ UI/UX Requirements
 Design a modern and professional interface.
 
 Required Pages:
-	1.	Landing Page
+	1.	Landing Page (Use `Ambulance.jpg` for the Hero background)
 	2.	Map Page (show nearby ambulances using React-Leaflet)
 	3.	Ambulance selection cards
 	4.	Booking popup form
