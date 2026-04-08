@@ -135,7 +135,7 @@ Design a professional admin dashboard with pages such as:
 
 1. Admin Sign Up Page
 2. Admin Login Page (with Remember Me option)
-3. Dashboard Overview
+3. Dashboard Overview / Home Page ← uses ambulance.jpg as background
 4. Ambulance Management Page
 5. Booking Requests Page
 6. Real-Time Tracking Map
@@ -147,77 +147,9 @@ Analyze the images and place them in the correct dashboard sections.
 
 ---
 
-# Backend System
+### Home / Dashboard Overview — Background Image
 
-Design a backend system that supports:
+The Dashboard Overview (Home) page must use the following local image
+as its full-page background:
 
-- Booking requests
-- Ambulance dispatch
-- Real-time tracking
-- Payment processing
-- Feedback storage
-
-Provide:
-
-- API endpoints
-- Backend folder structure
-- Middleware
-- Authentication logic
-
-Suggested technologies:
-
-- Node.js + Express
-- Firebase
-- SQLite3 (for development)
-- PostgreSQL / MongoDB / MySQL (for production)
-
----
-
-# Database Design
-
-Design database tables such as:
-
-- Admins
-- AmbulanceCompanies
-- Ambulances
-- Drivers
-- Bookings
-- Locations
-- Payments
-- Feedback
-- RefreshTokens *(new — stores persistent Remember Me tokens per user)*
-
-Provide:
-
-- Table structures
-- Relationships
-- Primary and foreign keys
-
----
-
-# API Endpoints — Authentication
-
-Include the following auth endpoints:
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/signup | Register a new admin |
-| POST | /api/auth/login | Login with Remember Me support |
-| POST | /api/auth/logout | Invalidate session / refresh token |
-| POST | /api/auth/refresh-token | Issue new access token using refresh token |
-| POST | /api/auth/forgot-password | Send password reset email |
-| POST | /api/auth/reset-password | Reset password via token |
-
----
-
-# Deliverables
-
-Provide:
-
-1. Admin dashboard architecture
-2. Backend architecture
-3. API endpoints
-4. Database schema
-5. Folder structure
-6. Real-time tracking implementation
-7. Security considerations
+**Image path:**

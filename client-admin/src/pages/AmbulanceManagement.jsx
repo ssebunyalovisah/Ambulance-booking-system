@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Ambulance, Search, Trash2, Edit2, CheckCircle, XCircle, WifiOff, X, Loader2 } from 'lucide-react';
+import { Ambulance, Search, Trash2, Edit2, CheckCircle, XCircle, WifiOff, X, Loader2, Plus } from 'lucide-react';
 
 const STATUS_CYCLE = { 'AVAILABLE': 'BUSY', 'BUSY': 'OFFLINE', 'OFFLINE': 'AVAILABLE' };
 const STATUS_STYLES = {
@@ -16,7 +16,7 @@ const AmbulanceManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingAmbulance, setEditingAmbulance] = useState(null); // null = add mode
+  const [editingAmbulance, setEditingAmbulance] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -123,10 +123,10 @@ const AmbulanceManagement = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 max-h-screen overflow-y-auto w-full">
+    <div className="max-h-screen overflow-y-auto w-full">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-[200] px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm flex items-center gap-2 transition-all ${
+        <div className={`fixed top-6 right-6 z-[200] px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm flex items-center gap-2 transition-all animate-in ${
           toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'
         }`}>
           {toast.type === 'error' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4 text-green-400" />}
@@ -134,151 +134,186 @@ const AmbulanceManagement = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Fleet Management</h1>
-          <p className="text-slate-500 mt-1">Register and manage your ambulance units.</p>
+      {/* Fleet Hero Banner */}
+      <div
+        className="relative w-full h-[200px] md:h-[240px] overflow-hidden"
+        style={{
+          backgroundImage: `url('/ambulance-fleet.jpg')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 55%',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/75 to-slate-900/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+        <div className="absolute inset-0 flex items-end justify-between p-6 md:p-10">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                <Ambulance className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-orange-400 text-xs font-bold uppercase tracking-widest">Fleet Control</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Fleet Management</h1>
+            <p className="text-slate-300 mt-1.5 text-sm">Register, monitor, and control your ambulance units.</p>
+          </div>
+          <button
+            onClick={openAddModal}
+            className="hidden md:flex items-center gap-2 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white px-5 py-3 rounded-xl font-bold shadow-lg shadow-orange-600/30 transition-all text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Register New Unit
+          </button>
         </div>
-        <button
-          onClick={openAddModal}
-          className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20 transition-all active:scale-95"
-        >
-          <Ambulance className="w-5 h-5" />
-          Register New Unit
-        </button>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {[
-          { label: 'Available', count: ambulances.filter(a => a.status === 'AVAILABLE').length, color: 'text-green-600 bg-green-50 border-green-100' },
-          { label: 'On Mission', count: ambulances.filter(a => a.status === 'BUSY').length, color: 'text-red-600 bg-red-50 border-red-100' },
-          { label: 'Offline', count: ambulances.filter(a => a.status === 'OFFLINE').length, color: 'text-slate-500 bg-slate-50 border-slate-100' },
-        ].map(s => (
-          <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-            <div className={`text-2xl font-black`}>{s.count}</div>
-            <div className="text-xs font-bold uppercase tracking-wider mt-1 opacity-70">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Search units..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-sm"
-            />
-          </div>
-          <span className="text-sm text-slate-500 font-medium whitespace-nowrap">{filtered.length} units</span>
+      {/* Main Content */}
+      <div className="p-4 md:p-8">
+        {/* Mobile register button */}
+        <div className="md:hidden mb-6">
+          <button
+            onClick={openAddModal}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20 transition-all active:scale-95"
+          >
+            <Ambulance className="w-5 h-5" />
+            Register New Unit
+          </button>
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="px-6 py-12 text-center">
-            <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {[
+            { label: 'Available', count: ambulances.filter(a => a.status === 'AVAILABLE').length, color: 'text-green-600 bg-green-50 border-green-100' },
+            { label: 'On Mission', count: ambulances.filter(a => a.status === 'BUSY').length, color: 'text-red-600 bg-red-50 border-red-100' },
+            { label: 'Offline', count: ambulances.filter(a => a.status === 'OFFLINE').length, color: 'text-slate-500 bg-slate-50 border-slate-100' },
+          ].map(s => (
+            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
+              <div className="text-2xl font-black">{s.count}</div>
+              <div className="text-xs font-bold uppercase tracking-wider mt-1 opacity-70">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Table Card */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          {/* Toolbar */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search units..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-sm"
+              />
+            </div>
+            <span className="text-sm text-slate-500 font-medium whitespace-nowrap">{filtered.length} units</span>
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-6 py-12 text-center text-slate-400 font-medium">
-            {searchTerm ? 'No units match your search.' : 'No ambulances registered yet.'}
-          </div>
-        ) : (
-          <>
-            {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50/50">
-                  <tr className="text-slate-500 text-xs font-bold uppercase tracking-wider">
-                    <th className="px-6 py-4">Unit Info</th>
-                    <th className="px-6 py-4">Driver</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">GPS</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filtered.map(amb => (
-                    <tr key={amb.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
-                            <Ambulance className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-800">{amb.ambulance_number}</div>
-                            <div className="text-xs text-slate-500">{amb.driver_contact}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium">{amb.driver_name}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border ${STATUS_STYLES[amb.status] || STATUS_STYLES.OFFLINE}`}>
-                          {amb.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-slate-400 font-mono">
-                        {amb.lat ? `${Number(amb.lat).toFixed(4)}, ${Number(amb.lng).toFixed(4)}` : '—'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1">
-                          <StatusToggleButton amb={amb} />
-                          <button onClick={() => openEditModal(amb)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition" title="Edit">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDelete(amb.id, amb.ambulance_number)} className="p-2 hover:bg-red-50 rounded-lg text-red-400 transition" title="Delete">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+
+          {/* Content */}
+          {loading ? (
+            <div className="px-6 py-12 text-center">
+              <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <Ambulance className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-medium">
+                {searchTerm ? 'No units match your search.' : 'No ambulances registered yet. Add your first unit above.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50/50">
+                    <tr className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+                      <th className="px-6 py-4">Unit Info</th>
+                      <th className="px-6 py-4">Driver</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">GPS</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filtered.map(amb => (
+                      <tr key={amb.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                              <Ambulance className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-800">{amb.ambulance_number}</div>
+                              <div className="text-xs text-slate-500">{amb.driver_contact}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 font-medium">{amb.driver_name}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border ${STATUS_STYLES[amb.status] || STATUS_STYLES.OFFLINE}`}>
+                            {amb.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                          {amb.lat ? `${Number(amb.lat).toFixed(4)}, ${Number(amb.lng).toFixed(4)}` : '—'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-1">
+                            <StatusToggleButton amb={amb} />
+                            <button onClick={() => openEditModal(amb)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition" title="Edit">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDelete(amb.id, amb.ambulance_number)} className="p-2 hover:bg-red-50 rounded-lg text-red-400 transition" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Mobile Cards */}
-            <div className="md:hidden divide-y divide-slate-100">
-              {filtered.map(amb => (
-                <div key={amb.id} className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
-                        <Ambulance className="w-6 h-6" />
+              {/* Mobile Cards */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filtered.map(amb => (
+                  <div key={amb.id} className="p-4 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
+                          <Ambulance className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900">{amb.ambulance_number}</h4>
+                          <p className="text-sm text-slate-500">{amb.driver_name}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900">{amb.ambulance_number}</h4>
-                        <p className="text-sm text-slate-500">{amb.driver_name}</p>
-                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${STATUS_STYLES[amb.status] || STATUS_STYLES.OFFLINE}`}>
+                        {amb.status}
+                      </span>
                     </div>
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${STATUS_STYLES[amb.status] || STATUS_STYLES.OFFLINE}`}>
-                      {amb.status}
-                    </span>
+                    <div className="flex gap-2">
+                      <button onClick={() => cycleStatus(amb.id, amb.status)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
+                          amb.status === 'AVAILABLE' ? 'bg-red-50 text-red-600 border-red-100' :
+                          amb.status === 'BUSY' ? 'bg-slate-50 text-slate-500 border-slate-100' :
+                          'bg-green-50 text-green-600 border-green-100'
+                        }`}>
+                        Mark {STATUS_CYCLE[amb.status]}
+                      </button>
+                      <button onClick={() => openEditModal(amb)} className="px-4 py-2 border border-slate-200 rounded-xl text-slate-500 text-xs font-bold">Edit</button>
+                      <button onClick={() => handleDelete(amb.id, amb.ambulance_number)} className="px-3 py-2 border border-red-100 rounded-xl text-red-400 text-xs font-bold">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => cycleStatus(amb.id, amb.status)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
-                        amb.status === 'AVAILABLE' ? 'bg-red-50 text-red-600 border-red-100' :
-                        amb.status === 'BUSY' ? 'bg-slate-50 text-slate-500 border-slate-100' :
-                        'bg-green-50 text-green-600 border-green-100'
-                      }`}>
-                      Mark {STATUS_CYCLE[amb.status]}
-                    </button>
-                    <button onClick={() => openEditModal(amb)} className="px-4 py-2 border border-slate-200 rounded-xl text-slate-500 text-xs font-bold">Edit</button>
-                    <button onClick={() => handleDelete(amb.id, amb.ambulance_number)} className="px-3 py-2 border border-red-100 rounded-xl text-red-400 text-xs font-bold">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Add / Edit Modal */}
@@ -286,16 +321,21 @@ const AmbulanceManagement = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-lg sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 md:px-8 pt-6 md:pt-8 pb-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-800">
-                {editingAmbulance ? `Edit ${editingAmbulance.ambulance_number}` : 'Register New Unit'}
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  {editingAmbulance ? `Edit ${editingAmbulance.ambulance_number}` : 'Register New Unit'}
+                </h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {editingAmbulance ? 'Update ambulance details below.' : 'Fill in the unit details to add it to your fleet.'}
+                </p>
+              </div>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 md:px-8 py-6 space-y-4">
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">Plate / Unit Number</label>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">Plate / Unit Number *</label>
                 <input
                   type="text" required
                   value={formData.ambulance_number}
@@ -306,7 +346,7 @@ const AmbulanceManagement = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Driver Name</label>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Driver Name *</label>
                   <input
                     type="text" required
                     value={formData.driver_name}
@@ -316,7 +356,7 @@ const AmbulanceManagement = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Driver Contact</label>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Driver Contact *</label>
                   <input
                     type="text" required
                     value={formData.driver_contact}
@@ -327,7 +367,7 @@ const AmbulanceManagement = () => {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">GPS Coordinates (optional)</label>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">GPS Coordinates <span className="font-normal text-slate-400">(optional)</span></label>
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number" step="any"
