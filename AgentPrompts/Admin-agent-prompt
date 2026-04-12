@@ -141,6 +141,45 @@ Design a professional admin dashboard with pages such as:
 6. Real-Time Tracking Map
 7. Payment Management Page
 8. Ratings & Feedback Page
+9. Reports Generation
+
+Admins should be able to generate reports for operational and financial insights.
+
+Report types:
+- Booking Summary Report
+- Revenue / Payments Report
+- Ambulance Utilization Report
+- Driver Performance Report
+- Patient & Feedback Report
+- Emergency Response Time Report
+
+Filters available on all reports:
+- Date range picker (start date / end date)
+- Ambulance filter
+- Driver filter
+- Booking status filter
+- Payment status filter
+
+Export formats:
+- PDF export (via jsPDF or server-side rendering)
+- Excel / CSV export
+- Print view
+
+Charts and visualizations (use Chart.js or Recharts):
+- Bookings over time (line chart)
+- Revenue by period (bar chart)
+- Ambulance status breakdown (pie chart)
+- Average response time trend
+- Rating distribution
+
+The Reports & Analytics page (Page 9) must include:
+- Date range selector
+- Report type dropdown
+- Generate button
+- Preview panel
+- Export toolbar (PDF / CSV / Print)
+
+Scheduled / automated report delivery is optional but recommended for Super Admin role.
 
 We also have UI images/screenshots.  
 Analyze the images and place them in the correct dashboard sections.

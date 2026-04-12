@@ -12,6 +12,7 @@ import BookingRequests from './pages/BookingRequests';
 import LiveTracking from './pages/LiveTracking';
 import PaymentManagement from './pages/PaymentManagement';
 import FeedbackManagement from './pages/FeedbackManagement';
+import Reports from './pages/Reports';
 import { AuthProvider } from './context/AuthContext';
 
 function Layout({ children }) {
@@ -101,6 +102,14 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <FeedbackManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Layout>
+                <Reports />
               </Layout>
             </ProtectedRoute>
           } />

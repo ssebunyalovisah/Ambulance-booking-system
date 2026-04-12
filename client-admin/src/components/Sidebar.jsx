@@ -9,7 +9,8 @@ import {
   MessageSquare, 
   LogOut,
   ChevronRight,
-  Radio
+  Radio,
+  BarChart3
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -22,6 +23,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: Radio, label: 'Live Tracking', path: '/tracking' },
         { icon: CreditCard, label: 'Payments', path: '/payments' },
         { icon: MessageSquare, label: 'Feedback & Ratings', path: '/feedback' },
+        { icon: BarChart3, label: 'Reports & Analytics', path: '/reports' },
     ];
 
     return (

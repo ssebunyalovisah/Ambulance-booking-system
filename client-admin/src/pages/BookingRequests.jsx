@@ -28,6 +28,8 @@ const BookingRequests = () => {
   };
 
   useEffect(() => {
+    adminSocket.connect();
+    
     const fetchData = async () => {
       try {
         const [bookRes, ambRes] = await Promise.all([

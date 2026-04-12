@@ -65,10 +65,13 @@ if (dbType === 'postgres') {
         });
         
         return new Promise((resolve, reject) => {
-            if (sqliteQuery.trim().toUpperCase().startsWith('SELECT')) {
+            const isSelect = sqliteQuery.trim().toUpperCase().startsWith('SELECT');
+            const hasReturning = sqliteQuery.trim().toUpperCase().includes('RETURNING');
+
+            if (isSelect || hasReturning) {
                 db.all(sqliteQuery, orderedParams, (err, rows) => {
                     if (err) reject(err);
-                    else resolve({ rows, rowCount: rows.length });
+                    else resolve({ rows, rowCount: rows.length, lastID: rows.length > 0 ? rows[0].id : null });
                 });
             } else {
                 db.run(sqliteQuery, orderedParams, function(err) {

@@ -15,15 +15,15 @@ router.post('/', async (req, res) => {
       const company_id = companyResult.rows[0]?.id;
 
       if (!company_id) {
-          return res.status(400).json({ error: 'No ambulance companies available' });
+          return res.status(400).json({ error: 'No ambulance companies registered in the system.' });
       }
 
       const result = await db.query(
-          'INSERT INTO bookings (company_id, patient_name, phone_number, emergency_description, pickup_address, pickup_latitude, pickup_longitude, payment_method, payment_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          'INSERT INTO bookings (company_id, patient_name, phone_number, emergency_description, pickup_address, pickup_latitude, pickup_longitude, payment_method, payment_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
           [company_id, patient_name, phone_number, description, pickup_address, lat, lng, payment, 'PAID']
       );
 
-      const booking_id = result.lastID;
+      const booking_id = result.lastID || result.rows[0]?.id;
       
       const bookingData = {
         id: booking_id,
