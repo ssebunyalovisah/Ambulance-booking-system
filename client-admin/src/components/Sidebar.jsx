@@ -10,7 +10,8 @@ import {
   LogOut,
   ChevronRight,
   Radio,
-  BarChart3
+  BarChart3,
+  Building2
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -25,6 +26,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: MessageSquare, label: 'Feedback & Ratings', path: '/feedback' },
         { icon: BarChart3, label: 'Reports & Analytics', path: '/reports' },
     ];
+
+    if (admin?.role === 'SUPER_ADMIN') {
+        navItems.push({ icon: Building2, label: 'Companies Management', path: '/companies' });
+    }
 
     return (
         <>
@@ -44,7 +49,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <Ambulance className="text-white w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-white text-lg tracking-tight">RescueAdmin</h2>
+                        <h2 className="font-bold text-white text-lg tracking-tight truncate max-w-[140px]">
+                            {admin?.company_name || 'RescueAdmin'}
+                        </h2>
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Live System</span>

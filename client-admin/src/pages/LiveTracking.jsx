@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { adminSocket } from '../services/socket';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import AdminMap from '../components/AdminMap';
 import { Shield, Radio, Navigation } from 'lucide-react';
 
 const LiveTracking = () => {
+    const { admin } = useAuth();
     const [ambulances, setAmbulances] = useState([]);
     const [requests, setRequests] = useState([]);
 
@@ -22,8 +24,13 @@ const LiveTracking = () => {
             }
         };
         fetchInitial();
-
-        adminSocket.connect();
+ 
+        if (admin?.company_id) {
+          adminSocket.connect({ 
+            companyId: admin.company_id, 
+            isSuper: admin.role === 'SUPER_ADMIN' 
+          });
+        }
         adminSocket.onAmbulanceLocation((data) => {
             setAmbulances(prev => prev.map(a => a.id === data.ambulanceId ? { ...a, lat: data.lat, lng: data.lng } : a));
         });

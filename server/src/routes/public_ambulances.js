@@ -8,6 +8,7 @@ router.get('/nearby', async (req, res) => {
       const sql = `
           SELECT 
             a.id, 
+            a.company_id,
             a.ambulance_number as plateNumber, 
             a.driver_name, 
             a.status, 

@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 exports.getReportsData = async (req, res) => {
-    const { company_id } = req.admin;
+    const { company_id, role } = req.admin;
     const { 
         reportType, 
         startDate, 
@@ -13,10 +13,17 @@ exports.getReportsData = async (req, res) => {
     } = req.query;
 
     try {
-        let dateFilter = '';
-        const params = [company_id];
+        let baseFilter = 'WHERE company_id = $1';
+        let params = [company_id];
         let paramIndex = 2;
 
+        if (role === 'SUPER_ADMIN') {
+            baseFilter = 'WHERE 1=1';
+            params = [];
+            paramIndex = 1;
+        }
+
+        let dateFilter = '';
         if (startDate && endDate) {
             dateFilter = ` AND created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
             params.push(new Date(startDate).toISOString(), new Date(endDate).toISOString());
@@ -28,11 +35,11 @@ exports.getReportsData = async (req, res) => {
         switch (reportType) {
             case 'BOOKING_SUMMARY':
                 const bookingStats = await db.query(
-                    `SELECT status, COUNT(*) as count FROM bookings WHERE company_id = $1 ${dateFilter} GROUP BY status`,
+                    `SELECT status, COUNT(*) as count FROM bookings ${baseFilter} ${dateFilter} GROUP BY status`,
                     params
                 );
                 const timeline = await db.query(
-                    `SELECT DATE(created_at) as date, COUNT(*) as count FROM bookings WHERE company_id = $1 ${dateFilter} GROUP BY DATE(created_at) ORDER BY date`,
+                    `SELECT DATE(created_at) as date, COUNT(*) as count FROM bookings ${baseFilter} ${dateFilter} GROUP BY DATE(created_at) ORDER BY date`,
                     params
                 );
                 data = { stats: bookingStats.rows, timeline: timeline.rows };
@@ -40,11 +47,11 @@ exports.getReportsData = async (req, res) => {
 
             case 'REVENUE':
                 const revenueTimeline = await db.query(
-                    `SELECT DATE(created_at) as date, SUM(total_amount) as amount FROM bookings WHERE company_id = $1 AND payment_status = 'PAID' ${dateFilter} GROUP BY DATE(created_at) ORDER BY date`,
+                    `SELECT DATE(created_at) as date, SUM(total_amount) as amount FROM bookings ${baseFilter} AND payment_status = 'PAID' ${dateFilter} GROUP BY DATE(created_at) ORDER BY date`,
                     params
                 );
                 const totalRevenue = await db.query(
-                    `SELECT SUM(total_amount) as total FROM bookings WHERE company_id = $1 AND payment_status = 'PAID' ${dateFilter}`,
+                    `SELECT SUM(total_amount) as total FROM bookings ${baseFilter} AND payment_status = 'PAID' ${dateFilter}`,
                     params
                 );
                 data = { timeline: revenueTimeline.rows, total: totalRevenue.rows[0]?.total || 0 };
@@ -56,7 +63,7 @@ exports.getReportsData = async (req, res) => {
                     SUM(CASE WHEN b.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_bookings
                     FROM ambulances a
                     LEFT JOIN bookings b ON a.id = b.ambulance_id
-                    WHERE a.company_id = $1 ${dateFilter.replace('created_at', 'b.created_at')}
+                    ${baseFilter.replace('company_id', 'a.company_id')} ${dateFilter.replace('created_at', 'b.created_at')}
                     GROUP BY a.id`,
                     params
                 );
@@ -70,7 +77,7 @@ exports.getReportsData = async (req, res) => {
                     FROM ambulances a
                     LEFT JOIN bookings b ON a.id = b.ambulance_id
                     LEFT JOIN feedback f ON b.id = f.booking_id
-                    WHERE a.company_id = $1 ${dateFilter.replace('created_at', 'b.created_at')}
+                    ${baseFilter.replace('company_id', 'a.company_id')} ${dateFilter.replace('created_at', 'b.created_at')}
                     GROUP BY a.id`,
                     params
                 );
@@ -81,14 +88,14 @@ exports.getReportsData = async (req, res) => {
                 const ratings = await db.query(
                     `SELECT rating, COUNT(*) as count FROM feedback f
                     JOIN bookings b ON f.booking_id = b.id
-                    WHERE b.company_id = $1 ${dateFilter.replace('created_at', 'f.created_at')}
+                    ${baseFilter.replace('company_id', 'b.company_id')} ${dateFilter.replace('created_at', 'f.created_at')}
                     GROUP BY rating`,
                     params
                 );
                 const recentFeedback = await db.query(
                     `SELECT f.*, b.patient_name FROM feedback f
                     JOIN bookings b ON f.booking_id = b.id
-                    WHERE b.company_id = $1 ${dateFilter.replace('created_at', 'f.created_at')}
+                    ${baseFilter.replace('company_id', 'b.company_id')} ${dateFilter.replace('created_at', 'f.created_at')}
                     ORDER BY f.created_at DESC LIMIT 50`,
                     params
                 );

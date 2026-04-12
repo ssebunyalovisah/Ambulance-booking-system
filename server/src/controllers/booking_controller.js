@@ -47,13 +47,15 @@ exports.updateBookingStatus = async (req, res) => {
             });
             
             // Also notify dashboard to update the lists
-            io.to('company_dashboard').emit('booking_status_changed', booking);
+            io.to(`company_dashboard_${booking.company_id}`).emit('booking_status_changed', booking);
+            io.to('super_dashboard').emit('booking_status_changed', booking);
             
             // If ambulance status changed, notify dashboard
             const ambId = booking.ambulance_id;
             if (ambId) {
                 const ambResult = await db.query('SELECT * FROM ambulances WHERE id = $1', [ambId]);
-                io.to('company_dashboard').emit('ambulance_status_changed', ambResult.rows[0]);
+                io.to(`company_dashboard_${booking.company_id}`).emit('ambulance_status_changed', ambResult.rows[0]);
+                io.to('super_dashboard').emit('ambulance_status_changed', ambResult.rows[0]);
             }
         }
         
@@ -65,12 +67,17 @@ exports.updateBookingStatus = async (req, res) => {
 };
 
 exports.getAdminBookings = async (req, res) => {
-    const { company_id } = req.admin;
+    const { company_id, role } = req.admin;
     try {
-        const result = await db.query(
-            'SELECT *, pickup_latitude as lat, pickup_longitude as lng FROM bookings WHERE company_id = $1 ORDER BY created_at DESC',
-            [company_id]
-        );
+        let queryStr = 'SELECT *, pickup_latitude as lat, pickup_longitude as lng FROM bookings WHERE company_id = $1 ORDER BY created_at DESC';
+        let params = [company_id];
+
+        if (role === 'SUPER_ADMIN') {
+            queryStr = 'SELECT *, pickup_latitude as lat, pickup_longitude as lng FROM bookings ORDER BY created_at DESC';
+            params = [];
+        }
+
+        const result = await db.query(queryStr, params);
         res.json(result.rows);
     } catch (err) {
         console.error(err);

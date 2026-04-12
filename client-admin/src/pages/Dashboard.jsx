@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminSocket } from '../services/socket';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import AdminMap from '../components/AdminMap';
 import RequestsBoard from '../components/RequestsBoard';
 import StatCards from '../components/StatCards';
@@ -23,6 +24,7 @@ function LiveClock() {
 }
 
 const Dashboard = () => {
+  const { admin } = useAuth();
   const [requests, setRequests] = useState([]);
   const [ambulances, setAmbulances] = useState([]);
 
@@ -40,8 +42,13 @@ const Dashboard = () => {
       }
     };
     fetchData();
-
-    adminSocket.connect();
+ 
+    if (admin?.company_id) {
+      adminSocket.connect({ 
+        companyId: admin.company_id, 
+        isSuper: admin.role === 'SUPER_ADMIN' 
+      });
+    }
     
     adminSocket.onNewBooking((newBooking) => {
         setRequests(prev => [newBooking, ...prev]);

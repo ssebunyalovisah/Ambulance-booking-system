@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Clock, Phone, MapPin, Activity, AlertCircle, Ambulance, ChevronDown, X, Check, XCircle } from 'lucide-react';
 import { adminSocket } from '../services/socket';
+import LocationModal from '../components/LocationModal';
 
 const STATUS_TABS = ['ALL', 'PENDING', 'ACCEPTED', 'DISPATCHED', 'COMPLETED', 'CANCELLED'];
 
@@ -14,6 +16,7 @@ const STATUS_COLORS = {
 };
 
 const BookingRequests = () => {
+  const { admin } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [availableAmbulances, setAvailableAmbulances] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +24,7 @@ const BookingRequests = () => {
   const [dispatchingId, setDispatchingId] = useState(null);
   const [selectedAmbulance, setSelectedAmbulance] = useState({});
   const [toast, setToast] = useState(null);
+  const [showMap, setShowMap] = useState(null); // {lat, lng, address}
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -28,7 +32,12 @@ const BookingRequests = () => {
   };
 
   useEffect(() => {
-    adminSocket.connect();
+    if (admin?.company_id) {
+      adminSocket.connect({ 
+        companyId: admin.company_id, 
+        isSuper: admin.role === 'SUPER_ADMIN' 
+      });
+    }
     
     const fetchData = async () => {
       try {
@@ -167,9 +176,17 @@ const BookingRequests = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <div className="text-sm text-slate-600 flex items-start gap-1">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-400" />
-                          <span className="line-clamp-1">{booking.pickup_address}</span>
+                        <div className="text-sm text-slate-600 flex items-start gap-2 group">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-400 group-hover:text-orange-500 transition-colors" />
+                          <div className="flex flex-col">
+                            <span className="line-clamp-1">{booking.pickup_address}</span>
+                            <button 
+                                onClick={() => setShowMap({ lat: booking.pickup_latitude || booking.lat, lng: booking.pickup_longitude || booking.lng, address: booking.pickup_address })}
+                                className="text-[10px] font-bold text-orange-600 hover:text-orange-700 uppercase tracking-wider text-left transition-colors"
+                            >
+                                View on Map
+                            </button>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -284,6 +301,15 @@ const BookingRequests = () => {
             </div>
           )}
         </div>
+      )}
+
+      {showMap && (
+        <LocationModal 
+            lat={showMap.lat} 
+            lng={showMap.lng} 
+            address={showMap.address} 
+            onClose={() => setShowMap(null)} 
+        />
       )}
     </div>
   );

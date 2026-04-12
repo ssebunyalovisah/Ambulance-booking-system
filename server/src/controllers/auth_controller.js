@@ -57,7 +57,14 @@ exports.signup = async (req, res) => {
 
         res.status(201).json({
             message: 'Admin registered successfully',
-            admin: { id: adminId, name, email, company_id: companyId, role: role || 'ADMIN' }
+            admin: { 
+                id: adminId, 
+                name, 
+                email, 
+                company_id: companyId, 
+                company_name: companyName,
+                role: role || 'ADMIN' 
+            }
         });
     } catch (err) {
         console.error(err);
@@ -69,7 +76,13 @@ exports.login = async (req, res) => {
     const { email, password, rememberMe } = req.body;
 
     try {
-        const result = await db.query('SELECT * FROM admins WHERE email = $1', [email]);
+        const result = await db.query(
+            `SELECT a.*, c.name as company_name 
+             FROM admins a 
+             JOIN companies c ON a.company_id = c.id 
+             WHERE a.email = $1`, 
+            [email]
+        );
         const admin = result.rows[0];
 
         if (!admin) {
@@ -96,7 +109,8 @@ exports.login = async (req, res) => {
                 name: admin.name,
                 email: admin.email,
                 role: admin.role,
-                company_id: admin.company_id
+                company_id: admin.company_id,
+                company_name: admin.company_name
             }
         });
     } catch (err) {
@@ -158,7 +172,13 @@ exports.logout = async (req, res) => {
 
 exports.getMe = async (req, res) => {
     try {
-        const result = await db.query('SELECT id, name, email, role, company_id FROM admins WHERE id = $1', [req.admin.id]);
+        const result = await db.query(
+            `SELECT a.id, a.name, a.email, a.role, a.company_id, c.name as company_name 
+             FROM admins a 
+             JOIN companies c ON a.company_id = c.id 
+             WHERE a.id = $1`, 
+            [req.admin.id]
+        );
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'User not found' });
         }

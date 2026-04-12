@@ -122,7 +122,9 @@ function EmergencyApp() {
         const payload = {
             ...formData,
             lat: userLocation.lat,
-            lng: userLocation.lng
+            lng: userLocation.lng,
+            ambulance_id: selectedAmbulance?.id,
+            company_id: selectedAmbulance?.company_id
         };
         const response = await createBooking(payload);
         

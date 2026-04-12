@@ -21,13 +21,17 @@ exports.registerAmbulance = async (req, res) => {
 };
 
 exports.getAmbulances = async (req, res) => {
-    const { company_id } = req.admin;
-
+    const { company_id, role } = req.admin;
     try {
-        const result = await db.query(
-            'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances WHERE company_id = $1',
-            [company_id]
-        );
+        let queryStr = 'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances WHERE company_id = $1';
+        let params = [company_id];
+
+        if (role === 'SUPER_ADMIN') {
+            queryStr = 'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances';
+            params = [];
+        }
+
+        const result = await db.query(queryStr, params);
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -54,7 +58,8 @@ exports.updateAmbulanceStatus = async (req, res) => {
         
         // Notify admins about status change via socket
         const io = req.app.get('io');
-        io.to('company_dashboard').emit('ambulance_status_changed', updated.rows[0]);
+        io.to(`company_dashboard_${company_id}`).emit('ambulance_status_changed', updated.rows[0]);
+        io.to('super_dashboard').emit('ambulance_status_changed', updated.rows[0]);
 
         res.json(updated.rows[0]);
     } catch (err) {
@@ -80,8 +85,16 @@ exports.updateLocation = async (req, res) => {
 
         // Broadcast to relevant rooms
         const io = req.app.get('io');
-        io.to('company_dashboard').emit('ambulance_live_location', {
+        io.to(`company_dashboard_${company_id}`).emit('ambulance_live_location', {
             ambulanceId: id,
+            companyId: company_id,
+            lat,
+            lng,
+            timestamp: new Date()
+        });
+        io.to('super_dashboard').emit('ambulance_live_location', {
+            ambulanceId: id,
+            companyId: company_id,
             lat,
             lng,
             timestamp: new Date()

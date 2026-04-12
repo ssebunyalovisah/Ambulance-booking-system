@@ -7,13 +7,14 @@ class AdminSocketService {
         this.socket = null;
     }
 
-    connect() {
+    connect(companyId) {
         if (!this.socket) {
             this.socket = io(SOCKET_URL);
+            this.companyId = companyId;
 
             this.socket.on('connect', () => {
                 console.log('Admin socket connected');
-                this.socket.emit('join_dashboard');
+                this.socket.emit('join_dashboard', this.companyId);
             });
         }
         return this.socket;

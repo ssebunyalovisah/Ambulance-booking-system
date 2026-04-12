@@ -82,7 +82,7 @@ Admins should see incoming emergency requests including:
 - Patient name
 - Phone number
 - Emergency description
-- Patient location on Google Maps
+- Patient location on Leaflet + OpenStreetMap 
 
 Admins can then:
 
@@ -99,7 +99,7 @@ Admins must be able to track:
 - Ambulance location
 - Patient location
 
-Tracking must be shown live on Google Maps.
+Tracking must be shown live on Leaflet + OpenStreetMap.
 
 Use:
 

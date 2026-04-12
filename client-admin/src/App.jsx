@@ -13,6 +13,7 @@ import LiveTracking from './pages/LiveTracking';
 import PaymentManagement from './pages/PaymentManagement';
 import FeedbackManagement from './pages/FeedbackManagement';
 import Reports from './pages/Reports';
+import CompanyManagement from './pages/CompanyManagement';
 import { AuthProvider } from './context/AuthContext';
 
 function Layout({ children }) {
@@ -110,6 +111,14 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Reports />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/companies" element={
+            <ProtectedRoute>
+              <Layout>
+                <CompanyManagement />
               </Layout>
             </ProtectedRoute>
           } />
