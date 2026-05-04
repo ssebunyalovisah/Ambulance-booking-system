@@ -34,6 +34,37 @@ try {
         //INTERNAL PAYMENT ID
         const internalPaymentId = insertPaymentResult.rows[0].id;
 
+        //get the token
+        const token = await pesapalService.getOAuthToken();
+
+        //prepare order to send 
+        const pesapalResponse= await pesapalService.submitOrder(token, {
+            internalPaymentId:internalPaymentId,
+            amount:amountToPay,
+            description:`Ambulance Booking #${booking.id}`,
+            phone:booking.phone_number,
+            name:booking.patient_name
+        }
+            
+        )
+            //get the tracking id
+            const trackingId = pesapalResponse.order_tracking_id;
+
+            //get the url
+            const redirectUrl = pesapalResponse.redirect_url;
+
+            //update the db
+            await db.query(
+                `UPDATE payments SET pesapal_tracking_id = $1 WHERE id = $2`,
+                [trackingId, internalPaymentId]
+            );
+
+            //send the url to react
+            res.json({
+                message:"Payment initiated successfully",
+                redirect_url:redirectUrl,
+                trackingId:trackingId   
+            })
         
 }
 catch(error){
