@@ -25,9 +25,12 @@ router.post('/', async (req, res) => {
           return res.status(400).json({ error: 'No ambulance companies registered in the system.' });
       }
 
+      const total_amount = 50000; // Fixed flat rate for now
+      const initial_payment_status = (payment === 'momo' || payment === 'card') ? 'UNPAID' : 'PAID';
+
       const result = await db.query(
-          'INSERT INTO bookings (company_id, ambulance_id, patient_name, phone_number, emergency_description, pickup_address, pickup_latitude, pickup_longitude, payment_method, payment_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
-          [company_id, ambulance_id, name, phone, description, address, lat, lng, payment, 'PAID']
+          'INSERT INTO bookings (company_id, ambulance_id, patient_name, phone_number, emergency_description, pickup_address, pickup_latitude, pickup_longitude, payment_method, payment_status, total_amount) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+          [company_id, ambulance_id, name, phone, description, address, lat, lng, payment, initial_payment_status, total_amount]
       );
 
       const booking_id = result.lastID || result.rows[0]?.id;
