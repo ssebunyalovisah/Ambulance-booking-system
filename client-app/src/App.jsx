@@ -6,6 +6,7 @@ import AmbulanceCard from './components/AmbulanceCard';
 import AvailableUnitsList from './components/AvailableUnitsList';
 import BookingModal from './components/BookingModal';
 import PaymentIframeModal from './components/PaymentIframeModal';
+import InstallPrompt from './components/InstallPrompt';
 import TrackingPage from './pages/TrackingPage';
 import FeedbackModal from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
@@ -277,6 +278,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <InstallPrompt />
     </>
   );
 }
