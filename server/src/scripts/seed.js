@@ -2,9 +2,30 @@ require('dotenv').config();
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
+const fs = require('fs');
+const path = require('path');
+
 const seed = async () => {
     try {
         console.log('Seeding database...');
+        
+        // 0. Run schema.sql to ensure tables exist
+        const schemaPath = path.resolve(__dirname, '../config/schema.sql');
+        if (fs.existsSync(schemaPath)) {
+            let schema = fs.readFileSync(schemaPath, 'utf8');
+            console.log('Executing schema...');
+            
+            // If postgres, we must convert SQLite syntax to Postgres syntax
+            if (process.env.DB_TYPE === 'postgres' || process.env.DATABASE_URL) {
+                schema = schema.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY');
+                schema = schema.replace(/DATETIME/g, 'TIMESTAMP');
+                
+                await db.query(schema);
+            } else {
+                // SQLite executes in the background, but let's assume SQLite handled it in db.js
+                console.log('SQLite handles schema automatically in db.js');
+            }
+        }
 
         // 1. Create a default company
         await db.query(
