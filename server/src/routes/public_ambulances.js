@@ -22,7 +22,7 @@ router.get('/nearby', async (req, res) => {
           LEFT JOIN bookings b ON a.id = b.ambulance_id
           LEFT JOIN feedback f ON b.id = f.booking_id
           WHERE a.status = 'AVAILABLE'
-          GROUP BY a.id
+          GROUP BY a.id, a.company_id, a.ambulance_number, a.driver_name, a.status, a.latitude, a.longitude, c.name
       `;
 
       db.query(sql).then(result => {
