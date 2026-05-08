@@ -38,21 +38,21 @@ class PesapalService {
             currency: "UGX",
             amount: paymentData.amount,
             description: paymentData.description,
-            callback_url: "http://localhost:5173/payment-status",//one that react will go to, after payment is done  
-            notification_id:process.env.PESAPAL_IPN_ID || "dummy-ipn-id", 
-                 billing_address: {
-                    email_address: "test@example.com", // Pesapal requires an email
-                    phone_number: paymentData.phone,
-                    country_code: "UG", 
-                    first_name: paymentData.name,
-                    middle_name: "",
-                    last_name: "",
-                    line_1: "Kampala Road",
-                    city: "Kampala",
-                    state: "Central",
-                    postal_code: "00000",
-                    zip_code: "00000"
-                }         
+            callback_url: `${(this.frontendUrl || "http://localhost:5173").replace(/\/$/, '')}/payment-status`,
+            notification_id: process.env.PESAPAL_IPN_ID || "dummy-ipn-id", 
+            billing_address: {
+                email_address: paymentData.email || "support@cityrescue.com",
+                phone_number: paymentData.phone || "+256000000000",
+                country_code: "UG", 
+                first_name: paymentData.name ? paymentData.name.split(' ')[0] : "Customer",
+                middle_name: "",
+                last_name: paymentData.name && paymentData.name.includes(' ') ? paymentData.name.substring(paymentData.name.indexOf(' ') + 1) : "",
+                line_1: "Kampala Road",
+                city: "Kampala",
+                state: "Central",
+                postal_code: "256",
+                zip_code: "256"
+            }         
         }
 
         const response = await axios.post(`${this.baseUrl}/api/Transactions/SubmitOrderRequest`, payload, {
