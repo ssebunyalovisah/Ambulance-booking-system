@@ -1,0 +1,422 @@
+Unified Ambulance Emergency System — Full Agent Prompt
+
+Scope: This prompt covers the complete system — Client App, Admin Dashboard, and Driver App — as a single synchronized platform.
+
+
+System Overview
+An Ambulance Emergency Booking System with three interconnected surfaces:
+SurfaceUsersPurposeClient AppPatients (public)Request ambulances, track in real-timeAdmin DashboardCompany admins / Super AdminsManage ambulances, drivers, bookings, paymentsDriver AppRegistered driversReceive requests, accept/deny, navigate to patient
+All three surfaces share a single backend and communicate via REST APIs + real-time WebSocket/Socket.io/Firebase channels.
+Database: SQLite3 (development) → PostgreSQL or MySQL (production)
+
+1. Authentication — Unified Smart Login System
+How It Works
+There is one login page for both admins and drivers. After credentials are verified, the backend returns a role field (super_admin | admin | driver), and the frontend automatically redirects:
+
+super_admin / admin → Admin Dashboard
+driver → Driver Dashboard
+
+Admin Registration (Company Onboarding)
+New companies register through a "Register New Company" form:
+Fields:
+
+Full Name
+Company Name
+Email Address
+Password + Confirm Password
+Role Assignment: Super Admin | Admin
+
+No self-serve driver sign-up. Drivers are only registered by an admin from inside the dashboard.
+Driver Registration (Admin-Side Only)
+Admins register drivers from the Ambulance Management page. Driver accounts are created with:
+
+Full Name
+Phone Number
+Email Address (used as login)
+Auto-generated or admin-set Password
+Assigned Ambulance
+Driver Photo (optional)
+
+Login Page (Shared — Admin & Driver)
+Fields:
+
+Email Address
+Password
+Remember Me checkbox → persistent session (30 days via httpOnly cookie or localStorage JWT with extended expiry)
+
+Additional Features:
+
+Forgot Password / Reset Password link
+Session timeout with auto-logout after inactivity
+Role detection on successful login → smart redirect
+
+Auth Architecture
+
+JWT authentication (short-lived access tokens + long-lived refresh tokens)
+Role-based access control (RBAC): super_admin, admin, driver
+Refresh token rotation for persistent sessions
+Secure httpOnly cookies for Remember Me token storage
+Protected routes per role on the frontend
+
+
+2. Client Application (Patient-Facing)
+Principles
+
+No login required. Fully public access.
+Optimized for emergency speed — minimal friction.
+Built with React (Web Application).
+
+Pages & Features
+Page 1 — Landing Page
+
+Hero background: Ambulance.jpg
+Clear CTA: "Request Ambulance Now"
+Brief system description
+
+Page 2 — Map Page
+
+Auto-detect patient GPS location via browser Geolocation API
+Display patient location on React-Leaflet + OpenStreetMap (no API key required)
+Show nearby available ambulances as map markers
+Each marker shows: Company Name, Driver Name, Estimated Arrival Time
+
+Page 3 — Ambulance Selection Cards
+
+List of available ambulances sorted by proximity
+Each card shows:
+
+Company Name (not generic "Rescue Unit")
+Driver Name & ID
+Estimated arrival time
+Distance from patient
+Price estimate
+
+
+Patient taps a card to select
+
+Page 4 — Booking Popup Form
+Appears after ambulance selection:
+
+Patient Name
+Phone Number
+Emergency Description (required)
+Payment Method
+Submit → creates booking request sent to selected company's admin + assigned driver
+
+Page 5 — Real-Time Tracking Page
+After booking confirmation:
+
+Live Leaflet map showing:
+
+Ambulance marker moving in real-time
+Patient marker (static or live-updated)
+Route line between them
+
+
+Estimated arrival time (live countdown)
+Distance remaining
+Dispatch info panel showing:
+
+Company Name
+Driver Name + Driver ID
+Ambulance Number
+
+
+Real-time via Socket.io / Firebase / WebSockets
+
+Page 6 — Ratings & Feedback Page
+After trip completion:
+
+Star rating (1–5)
+Written feedback
+Submit → stored and visible to admin
+
+
+3. Admin Dashboard
+Pages
+
+Login Page (shared with drivers — smart redirect)
+Register New Company Page (sign-up form)
+Dashboard Overview / Home
+
+Full-page background: ambulance.jpg
+KPI cards: total bookings, active ambulances, revenue, avg response time
+Quick-access widgets
+
+
+Ambulance Management Page
+
+Register new ambulance (Ambulance Number, Driver assignment, GPS capability, Status)
+Activate / Deactivate ambulances
+Monitor availability
+Status auto-updates to Busy when a booking is accepted
+
+
+Driver Management (within Ambulance Management)
+
+Register new driver (creates driver login credentials)
+Edit driver details
+View driver status (available / on-trip / offline)
+
+
+Booking Requests Page
+
+Incoming emergency requests with:
+
+Patient Name, Phone, Emergency Description
+Patient location on Leaflet map
+
+
+Actions: Assign Ambulance → Accept → Dispatch
+Dispatched bookings show: Company Name + Driver Name/ID (not generic label)
+
+
+Real-Time Tracking Map
+
+Live map (Leaflet + OpenStreetMap)
+Ambulance location + Patient location
+Real-time via Socket.io / Firebase / WebSockets
+
+
+Payment Management Page
+
+View booking payments
+Confirm / approve payments
+Transaction records
+
+
+Ratings & Feedback Page
+
+Patient ratings, feedback, service reviews per driver/ambulance
+
+
+Reports & Analytics Page
+
+Reports & Analytics (Page 10)
+Report Types:
+
+Booking Summary Report
+Revenue / Payments Report
+Ambulance Utilization Report
+Driver Performance Report
+Patient & Feedback Report
+Emergency Response Time Report
+
+Filters (on all reports):
+
+Date range picker (start / end date)
+Ambulance filter
+Driver filter
+Booking status filter
+Payment status filter
+
+Export Formats:
+
+PDF (jsPDF or server-side rendering)
+Excel / CSV
+Print view
+
+Charts (Chart.js or Recharts):
+
+Bookings over time — line chart
+Revenue by period — bar chart
+Ambulance status breakdown — pie chart
+Average response time trend
+Rating distribution
+
+UI Elements:
+
+Date range selector
+Report type dropdown
+Generate button
+Preview panel
+Export toolbar (PDF / CSV / Print)
+
+
+4. Driver App / Dashboard
+Access
+
+Driver logs in via the shared login page
+System detects role: driver → redirects to Driver Dashboard
+
+Driver Dashboard Pages
+Page 1 — Incoming Request Screen (SafeBoda-style)
+
+Incoming booking requests appear as a full-screen popup / notification card showing:
+
+Patient Name
+Emergency Description
+Patient location (static map preview — Leaflet)
+Distance from driver
+Estimated trip time
+
+
+Two action buttons:
+
+✅ Accept → booking confirmed, driver dispatched
+❌ Deny → request returned to admin for reassignment
+
+
+Timeout: if driver doesn't respond within X seconds, request auto-returns to admin
+
+Page 2 — Active Trip / Navigation Screen
+
+Live Leaflet map showing:
+
+Driver's current location (auto-updating via GPS)
+Patient's location (live-updated from patient's device)
+Route line
+
+
+Trip info panel:
+
+Patient Name + Phone (tap to call)
+Emergency description
+Estimated arrival time
+
+
+Actions:
+
+"Mark as Arrived"
+"Complete Trip"
+"Cancel Trip" (with reason)
+
+
+
+Page 3 — Trip History
+
+List of past trips with status, patient info, earnings
+
+Page 4 — Profile
+
+Driver name, ID, photo
+Assigned ambulance details
+Status toggle: Available / Offline
+
+
+5. Real-Time Synchronization Architecture
+All three surfaces (Client, Admin, Driver) must stay in sync via real-time channels.
+Events to Synchronize
+EventSenderReceiversNew booking requestClient AppAdmin Dashboard + assigned DriverDriver accepts bookingDriver AppClient App (tracking activates) + AdminDriver denies bookingDriver AppAdmin Dashboard (reassign)Driver location updateDriver App (GPS)Client App (live marker) + Admin mapPatient location updateClient App (GPS)Driver App (live marker) + Admin mapTrip completedDriver AppClient App (rating page shown) + AdminPayment confirmedAdminClient App (receipt / status)
+Tech Stack for Real-Time
+
+Socket.io (primary — room-based per booking ID)
+Firebase Realtime Database (optional fallback / location streams)
+WebSockets (raw WS where Socket.io is overkill)
+
+Room Strategy
+Each booking creates a Socket.io room: room:booking_{bookingId}
+Client, Driver, and Admin all join this room for that booking's lifecycle.
+
+6. Dispatch Display — No Generic Labels
+Everywhere a dispatch or ambulance assignment is shown (Client tracking page, Admin booking list, Driver screen), the display must show:
+🚑 [Company Name] — Driver: [Driver Full Name] (#[Driver ID]) — Unit: [Ambulance Number]
+Never display a generic label like "Rescue Unit" or "Driver 1".
+
+7. Backend API Plan
+Auth
+
+POST /auth/register — company/admin registration
+POST /auth/login — unified login (returns role + tokens)
+POST /auth/refresh — refresh access token
+POST /auth/logout
+POST /auth/forgot-password
+POST /auth/reset-password
+
+Ambulances & Drivers
+
+GET /ambulances — list (with filters)
+POST /ambulances — register new ambulance
+PATCH /ambulances/:id/status — activate/deactivate
+POST /drivers — register new driver (admin only)
+GET /drivers/:id
+
+Bookings
+
+GET /bookings — list (admin)
+POST /bookings — create (client, public)
+GET /bookings/:id
+PATCH /bookings/:id/assign — assign ambulance
+PATCH /bookings/:id/accept — driver accepts
+PATCH /bookings/:id/deny — driver denies
+PATCH /bookings/:id/dispatch
+PATCH /bookings/:id/complete
+
+Location
+
+POST /location/patient — update patient location
+POST /location/driver — update driver location
+GET /location/ambulances/nearby — public, for client map
+
+Payments
+
+GET /payments
+PATCH /payments/:id/confirm
+
+Feedback
+
+POST /feedback — client submits
+GET /feedback — admin views
+
+Reports
+
+GET /reports/:type?startDate=&endDate=&... — filtered report data
+
+
+8. Frontend Architecture
+Folder Structure (Monorepo recommended)
+/ambulance-system
+  /client-app          ← Patient React app (public)
+    /src
+      /pages           ← Landing, Map, Tracking, Feedback
+      /components      ← AmbulanceCard, BookingForm, MapView, DispatchInfo
+      /hooks           ← useGeolocation, useSocket, useBooking
+      /services        ← api.js, socket.js
+      /store           ← Zustand or Redux (booking state, location state)
+  
+  /admin-dashboard     ← Admin React app (protected)
+    /src
+      /pages           ← Login, Register, Dashboard, Ambulances, Bookings, Tracking, Payments, Reports
+      /components      ← Sidebar, KPICard, BookingTable, MapPanel, ReportChart
+      /hooks           ← useAuth, useSocket, useReports
+      /services        ← api.js, socket.js
+      /store           ← Auth store, booking store
+  
+  /driver-app          ← Driver React app (protected, role-gated)
+    /src
+      /pages           ← Login (shared), RequestScreen, TripScreen, History, Profile
+      /components      ← RequestCard, LiveMap, TripInfoPanel
+      /hooks           ← useDriverLocation, useSocket, useTrip
+      /services        ← api.js, socket.js
+      /store           ← Trip store, location store
+  
+  /backend             ← Node.js / Express API
+    /src
+      /routes
+      /controllers
+      /models          ← Sequelize (SQLite dev / PostgreSQL prod)
+      /middleware      ← auth, rbac, rateLimit
+      /socket          ← Socket.io event handlers
+      /services        ← location, notification, report generation
+State Management
+
+Zustand (recommended — lightweight, works well for real-time state)
+Or Redux Toolkit for larger teams
+
+Map
+
+React-Leaflet + OpenStreetMap tiles — zero API key required
+Leaflet.Routing.Machine for route lines
+
+
+9. Key Design Principles
+
+No generic dispatch labels — always show Company + Driver Name + ID
+One login, smart routing — role detected server-side, redirect client-side
+Driver flow mirrors SafeBoda — full-screen incoming request, accept/deny with timeout
+Everything syncs — booking state changes propagate instantly to all three surfaces via Socket.io rooms
+Public client — zero friction for patients in emergencies
+Secure admin/driver — RBAC-protected, JWT + refresh tokens
+
+
+This prompt is the single source of truth for all three surfaces of the Ambulance Emergency System. All agents, developers, and code generators must harmonise their output with this specification.
