@@ -5,13 +5,15 @@ class PesapalService {
         this.consumerKey = process.env.PESAPAL_CONSUMER_KEY;
         this.consumerSecret = process.env.PESAPAL_SECRET_KEY;
         this.baseUrl = process.env.PESAPAL_BASE_URL;
+        this.backendUrl = process.env.BACKEND_URL;
+        this.frontendUrl = process.env.FRONTEND_URL;            
     }
 
 
     async getOAuthToken() {
         //request token
         try {
-            const response = await axios.post(`${this.baseUrl}/api/auth/RequestAdvToken`,
+            const response = await axios.post(`${this.baseUrl}/api/Auth/RequestToken`,
                 {
                     consumer_key: this.consumerKey,
                     consumer_secret: this.consumerSecret
@@ -32,20 +34,25 @@ class PesapalService {
     async submitOrder(token, paymentData) {
     try{
         const payload = {
-            Id: paymentData.internalPaymentId,
+            id: paymentData.internalPaymentId.toString(),
             currency: "UGX",
             amount: paymentData.amount,
-            description: paymentdata.description,
-            callback_url: "http://localhost:5173/payment-status",//one that react will go to, after payment is done  
-            notification_id:process.env.PESAPAL_NOTIFICATION_URL, 
-                 billing_address: {
-                    email_address: "[EMAIL_ADDRESS]", // Pesapal requires an email
-                    phone_number: paymentData.phone,
-                    country_code: "UG", 
-                    first_name: paymentData.name,
-                    middle_name: "",
-                    last_name: ""
-                }         
+            description: paymentData.description,
+            callback_url: `${(this.frontendUrl || "http://localhost:5173").replace(/\/$/, '')}/payment-status`,
+            notification_id: process.env.PESAPAL_IPN_ID || "dummy-ipn-id", 
+            billing_address: {
+                email_address: paymentData.email || "support@cityrescue.com",
+                phone_number: paymentData.phone || "+256000000000",
+                country_code: "UG", 
+                first_name: paymentData.name ? paymentData.name.split(' ')[0] : "Customer",
+                middle_name: "",
+                last_name: paymentData.name && paymentData.name.includes(' ') ? paymentData.name.substring(paymentData.name.indexOf(' ') + 1) : "",
+                line_1: "Kampala Road",
+                city: "Kampala",
+                state: "Central",
+                postal_code: "256",
+                zip_code: "256"
+            }         
         }
 
         const response = await axios.post(`${this.baseUrl}/api/Transactions/SubmitOrderRequest`, payload, {
@@ -63,6 +70,49 @@ class PesapalService {
     }
 }
 
+async registerIPN(token){
+    try{
+        const response = await axios.post(`${this.baseUrl}/api/URLSetup/RegisterIPN`,
+            {
+                url: `${process.env.BACKEND_URL}/api/payments/webhook`,
+                ipn_notification_type: "POST"
+            },
+            {
+                headers:{
+                    Authorization:`Bearer ${token}`
+                }
+            }
+        )
+        return response.data;
+    }
+    catch(error){
+        console.error("error registering ipn",
+            error.response?error.response.data: error.message);
+        throw new Error("could not register ipn")
+    }
+}
+
+async getTransactionStatus(token, trackingId){
+    try{
+        //get status
+        const response = await axios.get(`${this.baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${trackingId}`,
+            {
+                headers:{
+                    Authorization:`Bearer ${token}`
+                }
+            }
+        )
+        return response.data;
+    }
+    catch(error){
+        console.error("could not get the status:",
+            error.response?error.response.data:error.message
+        );
+        throw new Error("Could not verify transaction status");
+
+    }
+
+}
 }
 
 

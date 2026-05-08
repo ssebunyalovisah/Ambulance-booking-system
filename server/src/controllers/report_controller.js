@@ -64,7 +64,7 @@ exports.getReportsData = async (req, res) => {
                     FROM ambulances a
                     LEFT JOIN bookings b ON a.id = b.ambulance_id
                     ${baseFilter.replace('company_id', 'a.company_id')} ${dateFilter.replace('created_at', 'b.created_at')}
-                    GROUP BY a.id`,
+                    GROUP BY a.id, a.ambulance_number`,
                     params
                 );
                 data = { utilization: utilization.rows };
@@ -78,7 +78,7 @@ exports.getReportsData = async (req, res) => {
                     LEFT JOIN bookings b ON a.id = b.ambulance_id
                     LEFT JOIN feedback f ON b.id = f.booking_id
                     ${baseFilter.replace('company_id', 'a.company_id')} ${dateFilter.replace('created_at', 'b.created_at')}
-                    GROUP BY a.id`,
+                    GROUP BY a.id, a.driver_name`,
                     params
                 );
                 data = { performance: performance.rows };

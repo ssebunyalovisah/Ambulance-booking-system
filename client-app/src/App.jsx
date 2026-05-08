@@ -1,20 +1,24 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Stethoscope, ArrowLeft } from 'lucide-react';
 import MapView from './components/MapComponent';
 import AmbulanceCard from './components/AmbulanceCard';
 import AvailableUnitsList from './components/AvailableUnitsList';
 import BookingModal from './components/BookingModal';
+import PaymentIframeModal from './components/PaymentIframeModal';
+import InstallPrompt from './components/InstallPrompt';
 import TrackingPage from './pages/TrackingPage';
 import FeedbackModal from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
-import { createBooking, getNearbyAmbulances } from './services/api';
+import PaymentStatusPage from './pages/PaymentStatus';
+import { createBooking, getNearbyAmbulances, initiatePayment } from './services/api';
 import { socketService } from './services/socket';
 import { useBookingStore } from './store/useBookingStore';
 import { useLocationStore } from './store/useLocationStore';
 
 function EmergencyApp() {
   const navigate = useNavigate();
+  const [paymentIframeUrl, setPaymentIframeUrl] = useState(null);
 
   // Removed the hard-refresh redirect glitch to allow direct access/refresh
   // useEffect(() => {
@@ -45,6 +49,22 @@ function EmergencyApp() {
     completeTrip,
     clearBooking
   } = useBookingStore();
+
+  // Listen for iframe payment success/failure messages
+  useEffect(() => {
+    const handleIframeMessage = (event) => {
+        if (event.data?.type === 'PESAPAL_PAYMENT_SUCCESS') {
+            setPaymentIframeUrl(null); // Close iframe
+            setActiveBooking(event.data.bookingId, 'PAID');
+        } else if (event.data?.type === 'PESAPAL_PAYMENT_FAILED') {
+            setPaymentIframeUrl(null); // Close iframe
+            alert("Payment failed or was cancelled. Please try again.");
+        }
+    };
+    
+    window.addEventListener('message', handleIframeMessage);
+    return () => window.removeEventListener('message', handleIframeMessage);
+  }, [setActiveBooking]);
 
   // 1. Initial Location Detection & Real API Integration
   useEffect(() => {
@@ -128,6 +148,17 @@ function EmergencyApp() {
         };
         const response = await createBooking(payload);
         
+        // If payment is mobile money or card, we need to pay first
+        if (formData.payment === 'momo' || formData.payment === 'card') {
+            const paymentData = await initiatePayment(response.booking_id);
+            // Save booking id to local storage so we can check it after callback
+            localStorage.setItem("pending_booking_id", response.booking_id);
+            // Open iframe instead of redirecting
+            closeBookingModal();
+            setPaymentIframeUrl(paymentData.redirect_url);
+            return;
+        }
+
         closeBookingModal();
         setActiveBooking(response.booking_id, 'PENDING');
 
@@ -219,9 +250,16 @@ function EmergencyApp() {
             navigate("/", { replace: true });
         }}
       />
+
+      {/* Payment Iframe Modal */}
+      <PaymentIframeModal 
+        isOpen={!!paymentIframeUrl} 
+        url={paymentIframeUrl} 
+        onClose={() => setPaymentIframeUrl(null)} 
+      />
       
       {/* Background overlay when modal is open */}
-      {isBookingModalOpen && (
+      {(isBookingModalOpen || paymentIframeUrl) && (
         <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] z-40 transition-all pointer-events-none" />
       )}
     </div>
@@ -235,10 +273,12 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/map" element={<EmergencyApp />} />
+          <Route path="/payment-status" element={<PaymentStatusPage />} />
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <InstallPrompt />
     </>
   );
 }

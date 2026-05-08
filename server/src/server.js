@@ -49,6 +49,7 @@ app.use('/api/admin/ambulances', ambulanceRoutes);
 app.use('/api/admin/bookings', adminBookingRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', require('./routes/payment_routes'));
 app.use('/api/admin/reports', reportRoutes);
 app.use('/api/admin/companies', companyRoutes);
 

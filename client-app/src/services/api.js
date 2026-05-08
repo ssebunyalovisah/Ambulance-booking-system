@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ambulance-booking-system-4ytj.onrender.com/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -37,6 +37,26 @@ export const checkBookingStatus = async (bookingId) => {
         return response.data;
     } catch (error) {
         console.error("Status check failed", error);
+        throw error;
+    }
+};
+
+export const initiatePayment = async (booking_id) => {
+    try {
+        const response = await api.post('/payments/initiate', { booking_id });
+        return response.data;
+    } catch (error) {
+        console.error("Error initiating payment", error);
+        throw error;
+    }
+};
+
+export const getPaymentStatus = async (booking_id) => {
+    try {
+        const response = await api.get(`/payments/status/${booking_id}`);
+        return response.data;
+    } catch (error) {
+        console.error("Error getting payment status", error);
         throw error;
     }
 };

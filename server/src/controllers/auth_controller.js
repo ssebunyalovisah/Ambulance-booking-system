@@ -39,10 +39,10 @@ exports.signup = async (req, res) => {
 
         // Create company first
         const companyResult = await db.query(
-            'INSERT INTO companies (name, contact_email) VALUES ($1, $2)',
+            'INSERT INTO companies (name, contact_email) VALUES ($1, $2) RETURNING id',
             [companyName, email]
         );
-        const companyId = companyResult.lastID;
+        const companyId = companyResult.rows && companyResult.rows.length > 0 ? companyResult.rows[0].id : companyResult.lastID;
 
         // Hash password
         const salt = await bcrypt.genSalt(10);
@@ -50,10 +50,10 @@ exports.signup = async (req, res) => {
 
         // Create admin
         const adminResult = await db.query(
-            'INSERT INTO admins (company_id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+            'INSERT INTO admins (company_id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [companyId, name, email, passwordHash, role || 'ADMIN']
         );
-        const adminId = adminResult.lastID;
+        const adminId = adminResult.rows && adminResult.rows.length > 0 ? adminResult.rows[0].id : adminResult.lastID;
 
         res.status(201).json({
             message: 'Admin registered successfully',
