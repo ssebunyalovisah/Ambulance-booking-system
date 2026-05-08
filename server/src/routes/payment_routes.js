@@ -119,11 +119,30 @@ router.post('/webhook', async (req, res) => {
                 ['COMPLETED', OrderTrackingId]
             );
 
-            // Success! Update Bookings table
+            // Auto-Dispatch the ambulance!
             await db.query(
-                'UPDATE bookings SET payment_status = $1 WHERE id = $2',
-                ['PAID', payment.booking_id]
+                'UPDATE bookings SET payment_status = $1, status = $2 WHERE id = $3',
+                ['PAID', 'DISPATCHED', payment.booking_id]
             );
+
+            // Fetch booking to update ambulance and emit events
+            const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [payment.booking_id]);
+            const booking = bookingResult.rows[0];
+
+            if (booking && booking.ambulance_id) {
+                await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['BUSY', booking.ambulance_id]);
+            }
+
+            // Emit socket events so the map starts moving!
+            const io = req.app.get('io');
+            if (io && booking) {
+                io.to(`room_booking_${booking.id}`).emit('booking_status_update', {
+                    status: 'DISPATCHED',
+                    ambulance_id: booking.ambulance_id
+                });
+                io.to(`company_dashboard_${booking.company_id}`).emit('booking_status_changed', booking);
+                io.to('super_dashboard').emit('booking_status_changed', booking);
+            }
         } else if (realStatus === 'FAILED' || realStatus === 'INVALID') {
             // It actually failed or was invalid
             await db.query(
