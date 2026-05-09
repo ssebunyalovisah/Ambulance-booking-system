@@ -14,31 +14,46 @@ const LiveTracking = () => {
         const fetchInitial = async () => {
             try {
                 const [ambRes, bookRes] = await Promise.all([
-                    api.get('/admin/ambulances'),
-                    api.get('/admin/bookings')
+                    api.get('/ambulances'),
+                    api.get('/bookings')
                 ]);
                 setAmbulances(ambRes.data);
-                setRequests(bookRes.data.filter(r => r.status === 'ACCEPTED' || r.status === 'DISPATCHED'));
+                // Filter for active missions
+                setRequests(bookRes.data.filter(r => ['accepted', 'dispatched', 'arrived'].includes(r.status)));
             } catch (err) {
                 console.error(err);
             }
         };
         fetchInitial();
  
-        if (admin?.company_id) {
+        if (admin?.company_id || admin?.role === 'super_admin' || admin?.role === 'SUPER_ADMIN') {
           adminSocket.connect({ 
             companyId: admin.company_id, 
-            isSuper: admin.role === 'SUPER_ADMIN' 
+            isSuper: admin.role === 'super_admin' || admin.role === 'SUPER_ADMIN'
           });
         }
-        adminSocket.onAmbulanceLocation((data) => {
-            setAmbulances(prev => prev.map(a => a.id === data.ambulanceId ? { ...a, lat: data.lat, lng: data.lng } : a));
+
+        adminSocket.onDriverLocation((data) => {
+            setAmbulances(prev => prev.map(a => 
+                a.id === data.ambulanceId ? { ...a, lat: data.lat, lng: data.lng } : a
+            ));
+        });
+
+        adminSocket.onPatientLocation((data) => {
+            setRequests(prev => prev.map(r => 
+                r.id === data.bookingId ? { ...r, lat: data.lat, lng: data.lng } : r
+            ));
+        });
+
+        adminSocket.onBookingStatusUpdate((data) => {
+            // Refresh bookings on status change
+            fetchInitial();
         });
 
         return () => {
-            // Socket usually shared, but simple here
+            // adminSocket.disconnect(); // Keep alive for other pages
         };
-    }, []);
+    }, [admin]);
 
     return (
         <div className="h-[calc(100vh-64px)] lg:h-screen flex flex-col relative">

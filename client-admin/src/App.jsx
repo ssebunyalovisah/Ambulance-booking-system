@@ -8,6 +8,7 @@ import SignUp from './pages/SignUp';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import AmbulanceManagement from './pages/AmbulanceManagement';
+import DriverManagement from './pages/DriverManagement';
 import BookingRequests from './pages/BookingRequests';
 import LiveTracking from './pages/LiveTracking';
 import PaymentManagement from './pages/PaymentManagement';
@@ -71,6 +72,14 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <AmbulanceManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/drivers" element={
+            <ProtectedRoute>
+              <Layout>
+                <DriverManagement />
               </Layout>
             </ProtectedRoute>
           } />

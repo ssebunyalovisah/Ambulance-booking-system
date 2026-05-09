@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 exports.getReportsData = async (req, res) => {
-    const { company_id, role } = req.admin;
+    const { company_id, role } = req.user;
     const { 
         reportType, 
         startDate, 

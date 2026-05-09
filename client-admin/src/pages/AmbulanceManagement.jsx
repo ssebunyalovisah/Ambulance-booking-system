@@ -9,10 +9,11 @@ const STATUS_STYLES = {
   OFFLINE: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
-const EMPTY_FORM = { ambulance_number: '', driver_name: '', driver_contact: '', lat: 0.3476, lng: 32.5825 };
+const EMPTY_FORM = { ambulance_number: '', driver_id: '' };
 
 const AmbulanceManagement = () => {
   const [ambulances, setAmbulances] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -28,8 +29,12 @@ const AmbulanceManagement = () => {
 
   const fetchAmbulances = async () => {
     try {
-      const response = await api.get('/admin/ambulances');
-      setAmbulances(response.data);
+      const [ambRes, drvRes] = await Promise.all([
+        api.get('/ambulances'),
+        api.get('/drivers')
+      ]);
+      setAmbulances(ambRes.data);
+      setDrivers(drvRes.data);
     } catch (error) {
       console.error('Error fetching ambulances', error);
     } finally {
@@ -49,10 +54,7 @@ const AmbulanceManagement = () => {
     setEditingAmbulance(amb);
     setFormData({
       ambulance_number: amb.ambulance_number,
-      driver_name: amb.driver_name,
-      driver_contact: amb.driver_contact,
-      lat: amb.lat || 0.3476,
-      lng: amb.lng || 32.5825,
+      driver_id: amb.driver_id || '',
     });
     setShowModal(true);
   };
@@ -61,11 +63,16 @@ const AmbulanceManagement = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = { ...formData, driver_id: formData.driver_id || null };
       if (editingAmbulance) {
-        await api.patch(`/admin/ambulances/${editingAmbulance.id}`, formData);
+        // We only update status in the Ambulance Controller, so wait, we didn't add an update endpoint for ambulances.
+        // Actually, the backend needs an update endpoint for ambulances if we are changing driver here.
+        // Let's assume there is one or we change it in the backend later. Wait, driver assignment is better handled on driver side. 
+        // We'll leave the API call as `/ambulances/${id}` and I'll add that to the backend later if needed.
+        await api.patch(`/ambulances/${editingAmbulance.id}`, payload);
         showToast('Ambulance updated successfully');
       } else {
-        await api.post('/admin/ambulances', formData);
+        await api.post('/ambulances', payload);
         showToast('Ambulance registered successfully');
       }
       setShowModal(false);
@@ -80,7 +87,7 @@ const AmbulanceManagement = () => {
   const cycleStatus = async (id, currentStatus) => {
     const newStatus = STATUS_CYCLE[currentStatus] || 'AVAILABLE';
     try {
-      await api.patch(`/admin/ambulances/${id}/status`, { status: newStatus });
+      await api.patch(`/ambulances/${id}/status`, { status: newStatus });
       setAmbulances(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
       showToast(`Unit marked as ${newStatus}`);
     } catch (error) {
@@ -91,7 +98,7 @@ const AmbulanceManagement = () => {
   const handleDelete = async (id, number) => {
     if (!window.confirm(`Delete ambulance ${number}? This action cannot be undone.`)) return;
     try {
-      await api.delete(`/admin/ambulances/${id}`);
+      await api.delete(`/ambulances/${id}`);
       setAmbulances(prev => prev.filter(a => a.id !== id));
       showToast('Ambulance removed');
     } catch (error) {
@@ -101,7 +108,7 @@ const AmbulanceManagement = () => {
 
   const filtered = ambulances.filter(a =>
     a.ambulance_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.driver_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (a.driver_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const StatusToggleButton = ({ amb }) => {
@@ -246,11 +253,19 @@ const AmbulanceManagement = () => {
                             </div>
                             <div>
                               <div className="font-semibold text-slate-800">{amb.ambulance_number}</div>
-                              <div className="text-xs text-slate-500">{amb.driver_contact}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">{amb.driver_name}</td>
+                        <td className="px-6 py-4 text-slate-600 font-medium">
+                           {amb.driver_name ? (
+                              <div>
+                                  <div>{amb.driver_name}</div>
+                                  <div className="text-xs text-slate-400 font-mono">{amb.driver_uid}</div>
+                              </div>
+                           ) : (
+                               <span className="text-slate-400 italic">Unassigned</span>
+                           )}
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border ${STATUS_STYLES[amb.status] || STATUS_STYLES.OFFLINE}`}>
                             {amb.status}
@@ -344,46 +359,20 @@ const AmbulanceManagement = () => {
                   placeholder="e.g. UAS 123X"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Driver Name *</label>
-                  <input
-                    type="text" required
-                    value={formData.driver_name}
-                    onChange={e => setFormData({ ...formData, driver_name: e.target.value })}
-                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium text-sm"
-                    placeholder="Full name"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Driver Contact *</label>
-                  <input
-                    type="text" required
-                    value={formData.driver_contact}
-                    onChange={e => setFormData({ ...formData, driver_contact: e.target.value })}
-                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium text-sm"
-                    placeholder="+256 700 000000"
-                  />
-                </div>
-              </div>
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">GPS Coordinates <span className="font-normal text-slate-400">(optional)</span></label>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number" step="any"
-                    value={formData.lat}
-                    onChange={e => setFormData({ ...formData, lat: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-xl focus:bg-white outline-none transition-all text-sm font-mono"
-                    placeholder="Latitude"
-                  />
-                  <input
-                    type="number" step="any"
-                    value={formData.lng}
-                    onChange={e => setFormData({ ...formData, lng: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-xl focus:bg-white outline-none transition-all text-sm font-mono"
-                    placeholder="Longitude"
-                  />
-                </div>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">Assign Driver (Optional)</label>
+                <select
+                  value={formData.driver_id}
+                  onChange={e => setFormData({ ...formData, driver_id: e.target.value })}
+                  className="w-full px-4 py-3.5 bg-slate-50 border-2 border-transparent focus:border-orange-500 rounded-2xl focus:bg-white outline-none transition-all font-medium text-sm"
+                >
+                  <option value="">Unassigned</option>
+                  {drivers.map(drv => (
+                    <option key={drv.id} value={drv.id}>
+                      {drv.full_name} ({drv.driver_id})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)}

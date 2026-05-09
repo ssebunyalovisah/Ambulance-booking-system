@@ -9,12 +9,12 @@ const api = axios.create({
     }
 });
 
-export const getNearbyAmbulances = async (lat, lng, radius = 5) => {
+export const getNearbyAmbulances = async (lat, lng, radius = 50) => {
     try {
-        const response = await api.get('/public/ambulances/nearby', {
+        const response = await api.get('/location/ambulances/nearby', {
             params: { lat, lng, radius }
         });
-        return response.data;
+        return { success: true, ambulances: response.data };
     } catch (error) {
         console.error("Error fetching nearby ambulances", error);
         throw error;
@@ -23,8 +23,8 @@ export const getNearbyAmbulances = async (lat, lng, radius = 5) => {
 
 export const createBooking = async (bookingData) => {
     try {
-        const response = await api.post('/public/bookings', bookingData);
-        return response.data;
+        const response = await api.post('/bookings', bookingData);
+        return { ...response.data, booking_id: response.data.id }; // Adapter for old code expecting booking_id
     } catch (error) {
         console.error("Error creating booking", error);
         throw error;
@@ -33,7 +33,7 @@ export const createBooking = async (bookingData) => {
 
 export const checkBookingStatus = async (bookingId) => {
     try {
-        const response = await api.get(`/public/bookings/${bookingId}`);
+        const response = await api.get(`/bookings/${bookingId}`);
         return response.data;
     } catch (error) {
         console.error("Status check failed", error);

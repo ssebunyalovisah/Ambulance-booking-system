@@ -112,15 +112,16 @@ function EmergencyApp() {
        socketService.joinBookingRoom(activeBookingId);
        
        socketService.onBookingUpdate((data) => {
-           if (data.status === 'COMPLETED') {
+           if (data.status === 'completed') {
                 completeTrip();
            } else {
-                setActiveBooking(activeBookingId, `status_${data.status}`);
+                setActiveBooking(activeBookingId, data.status);
            }
        });
 
-       socketService.onLocationSync((data) => {
-           console.log("Real-time movement received:", data);
+       socketService.onDriverLocation((data) => {
+           console.log("Real-time driver movement received:", data);
+           useBookingStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng });
        });
 
        // 3. Share Patient Location in Real-time
@@ -132,10 +133,10 @@ function EmergencyApp() {
 
        return () => {
            clearInterval(locationInterval);
-           socketService.disconnect();
+           // socketService.disconnect();
        };
     }
-  }, [activeBookingId, setActiveBooking, completeTrip]);
+  }, [activeBookingId, setActiveBooking, completeTrip, userLocation]);
 
   const handleBookingSubmit = async (formData) => {
     try {

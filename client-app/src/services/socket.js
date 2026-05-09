@@ -24,25 +24,41 @@ class SocketService {
 
     joinBookingRoom(bookingId) {
         if (this.socket) {
-            this.socket.emit('join_booking_room', bookingId);
+            this.socket.emit('join_booking', bookingId);
         }
     }
 
-    onLocationSync(callback) {
+    onDriverLocation(callback) {
         if (this.socket) {
-            this.socket.on('location_synced', callback);
+            this.socket.on('driver_location_update', callback);
         }
     }
 
     onBookingUpdate(callback) {
         if (this.socket) {
-            this.socket.on('booking_status_update', callback);
+            const events = [
+                'booking_assigned',
+                'booking_accepted',
+                'ambulance_dispatched',
+                'driver_arrived',
+                'trip_completed',
+                'booking_cancelled',
+                'driver_denied'
+            ];
+            
+            events.forEach(evt => {
+                this.socket.on(evt, callback);
+            });
         }
     }
 
     emitPatientLocation(bookingId, location) {
         if (this.socket && this.socket.connected) {
-            this.socket.emit('update_patient_location', { booking_id: bookingId, location });
+            this.socket.emit('patient_location_update', { 
+                bookingId, 
+                lat: location.lat, 
+                lng: location.lng 
+            });
         }
     }
 

@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 exports.getAllPayments = async (req, res) => {
     try {
-        const companyId = req.admin.company_id;
+        const companyId = req.user.company_id;
         const result = await db.query(
             `SELECT p.*, b.patient_name, b.phone_number, b.pickup_address 
              FROM payments p 
@@ -52,7 +52,7 @@ exports.updatePaymentStatus = async (req, res) => {
 
 exports.getTransactionRecords = async (req, res) => {
     try {
-        const companyId = req.admin.company_id;
+        const companyId = req.user.company_id;
         const result = await db.query(
             `SELECT p.*, b.total_amount, b.patient_name 
              FROM payments p 

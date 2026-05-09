@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Radio,
   BarChart3,
-  Building2
+  Building2,
+  User
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -21,13 +22,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: LayoutDashboard, label: 'Overview', path: '/' },
         { icon: Bell, label: 'Incoming Requests', path: '/requests' },
         { icon: Ambulance, label: 'Fleet Management', path: '/ambulances' },
+        { icon: User, label: 'Driver Personnel', path: '/drivers' },
         { icon: Radio, label: 'Live Tracking', path: '/tracking' },
         { icon: CreditCard, label: 'Payments', path: '/payments' },
         { icon: MessageSquare, label: 'Feedback & Ratings', path: '/feedback' },
         { icon: BarChart3, label: 'Reports & Analytics', path: '/reports' },
     ];
 
-    if (admin?.role === 'SUPER_ADMIN') {
+    if (admin?.role === 'super_admin' || admin?.role === 'SUPER_ADMIN') {
         navItems.push({ icon: Building2, label: 'Companies Management', path: '/companies' });
     }
 

@@ -1,8 +1,8 @@
 const db = require('../config/db');
 
 exports.getAllCompanies = async (req, res) => {
-    const { role } = req.admin;
-    if (role !== 'SUPER_ADMIN') {
+    const { role } = req.user;
+    if (role?.toLowerCase() !== 'super_admin') {
         return res.status(403).json({ error: 'Access denied. Super Admin role required.' });
     }
 
@@ -17,15 +17,15 @@ exports.getAllCompanies = async (req, res) => {
 
 exports.deleteCompany = async (req, res) => {
     const { id } = req.params;
-    const { role } = req.admin;
+    const { role } = req.user;
     
-    if (role !== 'SUPER_ADMIN') {
+    if (role?.toLowerCase() !== 'super_admin') {
         return res.status(403).json({ error: 'Access denied. Super Admin role required.' });
     }
 
     try {
         // Prevention: don't delete the company the super admin belongs to if they are signed in
-        if (id == req.admin.company_id) {
+        if (id == req.user.company_id) {
              return res.status(400).json({ error: 'Cannot delete the company you are currently assigned to.' });
         }
 

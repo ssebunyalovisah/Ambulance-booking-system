@@ -29,11 +29,11 @@ const seed = async () => {
 
         // 1. Create a default company
         await db.query(
-            'INSERT INTO companies (name, contact_email) VALUES ($1, $2) ON CONFLICT (contact_email) DO UPDATE SET name = $1',
-            ['City Rescue Force', 'contact@cityrescue.com']
+            'INSERT INTO companies (name, email, phone) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET name = $1',
+            ['City Rescue Force', 'contact@cityrescue.com', '+256 800 123456']
         );
         
-        const companyResult = await db.query('SELECT id FROM companies WHERE contact_email = $1', ['contact@cityrescue.com']);
+        const companyResult = await db.query('SELECT id FROM companies WHERE email = $1', ['contact@cityrescue.com']);
         console.log('Company lookup result:', companyResult);
         const companyId = companyResult.rows[0]?.id;
         console.log('Using companyId:', companyId);
@@ -48,33 +48,62 @@ const seed = async () => {
         const passwordHash = await bcrypt.hash(password, salt);
 
         await db.query(
-            'INSERT INTO admins (company_id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET password_hash = $4, name = $2',
-            [companyId, 'Main Admin', 'admin@cityrescue.com', passwordHash, 'ADMIN']
+            'INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO UPDATE SET password_hash = $4, full_name = $2',
+            [companyId, 'Main Admin', 'admin@cityrescue.com', passwordHash, 'super_admin']
         );
 
         console.log('Default admin created successfully.');
         
-        // 3. Create default ambulances
+        // 3. Create default drivers
+        console.log('Registering default drivers...');
+        const drivers = [
+            { full_name: 'Ssendawula John', driver_id: 'DRV-001', phone: '+256 700 111111' },
+            { full_name: 'Musoke Moses', driver_id: 'DRV-002', phone: '+256 700 222222' },
+            { full_name: 'Nakato Sarah', driver_id: 'DRV-003', phone: '+256 700 333333' }
+        ];
+
+        for (const drv of drivers) {
+            await db.query(
+                "INSERT INTO drivers (company_id, full_name, driver_id, phone, status) VALUES ($1, $2, $3, $4, 'available') ON CONFLICT (driver_id) DO NOTHING",
+                [companyId, drv.full_name, drv.driver_id, drv.phone]
+            );
+        }
+        console.log('Default drivers created.');
+
+        // 4. Create default ambulances
         console.log('Registering default ambulances...');
         const ambulances = [
-            { number: 'UAS 123G', driver: 'Ssendawula John', contact: '+256 700 111111', lat: 0.355, lng: 32.585 },
-            { number: 'UBH 456X', driver: 'Musoke Moses', contact: '+256 700 222222', lat: 0.345, lng: 32.575 },
-            { number: 'UBA 789M', driver: 'Nakato Sarah', contact: '+256 700 333333', lat: 0.335, lng: 32.595 },
-            { number: 'UCN 101Z', driver: 'Okello David', contact: '+256 700 444444', lat: 0.365, lng: 32.565 },
-            { number: 'UFE 202K', driver: 'Atwine Prossy', contact: '+256 700 555555', lat: 0.325, lng: 32.605 }
+            { number: 'UAS 123G', driver_id: 'DRV-001' },
+            { number: 'UBH 456X', driver_id: 'DRV-002' },
+            { number: 'UBA 789M', driver_id: 'DRV-003' }
         ];
 
         for (const amb of ambulances) {
+            // Find driver's real auto-increment ID
+            const driverResult = await db.query('SELECT id FROM drivers WHERE driver_id = $1', [amb.driver_id]);
+            const driverDbId = driverResult.rows[0]?.id;
+
             await db.query(
-                "INSERT INTO ambulances (company_id, ambulance_number, driver_name, driver_contact, status, latitude, longitude) VALUES ($1, $2, $3, $4, 'AVAILABLE', $5, $6) ON CONFLICT (ambulance_number) DO NOTHING",
-                [companyId, amb.number, amb.driver, amb.contact, amb.lat, amb.lng]
+                "INSERT INTO ambulances (company_id, ambulance_number, driver_id, status) VALUES ($1, $2, $3, 'available') ON CONFLICT (ambulance_number) DO NOTHING",
+                [companyId, amb.number, driverDbId]
             );
+            
+            // Assign ambulance ID to driver
+            const ambResult = await db.query('SELECT id FROM ambulances WHERE ambulance_number = $1', [amb.number]);
+            const ambDbId = ambResult.rows[0]?.id;
+            
+            await db.query('UPDATE drivers SET ambulance_id = $1 WHERE id = $2', [ambDbId, driverDbId]);
         }
         console.log('Default available ambulances created.');
+        
         console.log('-----------------------------------');
         console.log('Credentials:');
-        console.log('Email: admin@cityrescue.com');
-        console.log('Password: adminpassword123');
+        console.log('Admin Email: admin@cityrescue.com');
+        console.log('Admin Password: adminpassword123');
+        console.log('-----------------------------------');
+        console.log('Driver Login:');
+        console.log('Name: Ssendawula John');
+        console.log('ID: DRV-001');
         console.log('-----------------------------------');
 
         process.exit(0);

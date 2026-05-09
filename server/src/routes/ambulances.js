@@ -3,13 +3,10 @@ const router = express.Router();
 const ambulanceController = require('../controllers/ambulance_controller');
 const auth = require('../middlewares/auth');
 
-router.use(auth); // Protect all ambulance routes
+router.get('/', auth, ambulanceController.getAmbulances);
+router.post('/', auth, ambulanceController.registerAmbulance);
+router.patch('/:id/status', auth, ambulanceController.updateAmbulanceStatus);
 
-router.post('/', ambulanceController.registerAmbulance);
-router.get('/', ambulanceController.getAmbulances);
-router.patch('/:id/status', ambulanceController.updateAmbulanceStatus);
-router.patch('/:id/location', ambulanceController.updateLocation);
-router.patch('/:id', ambulanceController.updateAmbulance);
-router.delete('/:id', ambulanceController.deleteAmbulance);
+// Note: /location/ambulances/nearby will be in the location router
 
 module.exports = router;

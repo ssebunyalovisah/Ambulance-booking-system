@@ -1,422 +1,609 @@
-Unified Ambulance Emergency System — Full Agent Prompt
+# Unified Ambulance Emergency System — Complete Agent Prompt
 
-Scope: This prompt covers the complete system — Client App, Admin Dashboard, and Driver App — as a single synchronized platform.
+> This is the single source of truth for all three surfaces: Client App, Admin Dashboard, and Driver App.
+> All developers, agents, and code generators must follow this specification exactly.
 
+---
 
-System Overview
+## System Overview
+
 An Ambulance Emergency Booking System with three interconnected surfaces:
-SurfaceUsersPurposeClient AppPatients (public)Request ambulances, track in real-timeAdmin DashboardCompany admins / Super AdminsManage ambulances, drivers, bookings, paymentsDriver AppRegistered driversReceive requests, accept/deny, navigate to patient
-All three surfaces share a single backend and communicate via REST APIs + real-time WebSocket/Socket.io/Firebase channels.
-Database: SQLite3 (development) → PostgreSQL or MySQL (production)
 
-1. Authentication — Unified Smart Login System
-How It Works
-There is one login page for both admins and drivers. After credentials are verified, the backend returns a role field (super_admin | admin | driver), and the frontend automatically redirects:
+| Surface | Users | Purpose |
+|---|---|---|
+| Client App | Patients (public) | Request ambulances, choose company, track in real-time |
+| Admin Dashboard | Company Admins / Super Admins | Manage ambulances, drivers, bookings, payments |
+| Driver App | Registered drivers only | Receive requests, accept/deny, navigate to patient |
 
-super_admin / admin → Admin Dashboard
-driver → Driver Dashboard
+All three surfaces share a **single backend**, a **single database**, and communicate via **REST APIs + Socket.io real-time events**.
 
-Admin Registration (Company Onboarding)
-New companies register through a "Register New Company" form:
-Fields:
+**Database:** SQLite3 (development) → PostgreSQL or MySQL (production)
+**Maps:** React-Leaflet + OpenStreetMap (no API key required — used across all surfaces)
+**Real-time:** Socket.io (primary), Firebase (optional fallback for location streams)
 
-Full Name
-Company Name
-Email Address
-Password + Confirm Password
-Role Assignment: Super Admin | Admin
+---
 
-No self-serve driver sign-up. Drivers are only registered by an admin from inside the dashboard.
-Driver Registration (Admin-Side Only)
-Admins register drivers from the Ambulance Management page. Driver accounts are created with:
+## 1. Authentication — One Smart Login System
 
-Full Name
-Phone Number
-Email Address (used as login)
-Auto-generated or admin-set Password
-Assigned Ambulance
-Driver Photo (optional)
+### How It Works
 
-Login Page (Shared — Admin & Driver)
-Fields:
+There is **one single login page** shared by both admins and drivers.
 
-Email Address
-Password
-Remember Me checkbox → persistent session (30 days via httpOnly cookie or localStorage JWT with extended expiry)
+- Admins log in with **Email + Password**
+- Drivers log in with **Driver Name + Driver ID** (no email required)
 
-Additional Features:
+After credentials are verified, the backend returns a `role` field:
+- `super_admin` → redirect to Admin Dashboard
+- `admin` → redirect to Admin Dashboard
+- `driver` → redirect to Driver Dashboard
 
-Forgot Password / Reset Password link
-Session timeout with auto-logout after inactivity
-Role detection on successful login → smart redirect
+The frontend detects the role from the JWT payload and routes automatically. No manual navigation required.
 
-Auth Architecture
+---
 
-JWT authentication (short-lived access tokens + long-lived refresh tokens)
-Role-based access control (RBAC): super_admin, admin, driver
-Refresh token rotation for persistent sessions
-Secure httpOnly cookies for Remember Me token storage
-Protected routes per role on the frontend
+### Admin Registration (Company Onboarding)
 
+New companies register through a **"Register New Company"** form with:
 
-2. Client Application (Patient-Facing)
-Principles
+- Full Name
+- Company Name
+- Email Address
+- Password + Confirm Password
+- Role Assignment: `Super Admin` | `Admin`
 
-No login required. Fully public access.
-Optimized for emergency speed — minimal friction.
-Built with React (Web Application).
+---
 
-Pages & Features
-Page 1 — Landing Page
+### Driver Registration (Admin-Side Only)
 
-Hero background: Ambulance.jpg
-Clear CTA: "Request Ambulance Now"
-Brief system description
+**Drivers cannot self-register.** Only an admin can create a driver account from inside the Admin Dashboard.
 
-Page 2 — Map Page
+When an admin registers a driver, the system creates:
 
-Auto-detect patient GPS location via browser Geolocation API
-Display patient location on React-Leaflet + OpenStreetMap (no API key required)
-Show nearby available ambulances as map markers
-Each marker shows: Company Name, Driver Name, Estimated Arrival Time
+- Full Name
+- Phone Number
+- Auto-generated unique **Driver ID** (e.g. `DRV-00123`)
+- Assigned Ambulance
+- Driver Photo (optional)
+- Login credentials: **Driver Name + Driver ID** (no email needed)
 
-Page 3 — Ambulance Selection Cards
+The admin shares the Driver Name and Driver ID with the driver. These are the only credentials the driver needs to log in.
 
-List of available ambulances sorted by proximity
-Each card shows:
+---
 
-Company Name (not generic "Rescue Unit")
-Driver Name & ID
-Estimated arrival time
-Distance from patient
-Price estimate
+### Shared Login Page Fields
 
+**For Admins:**
+- Email Address
+- Password
+- Remember Me checkbox → persistent session (30 days via httpOnly cookie or JWT with extended expiry)
+- Forgot Password / Reset Password link
+- Session timeout with auto-logout after inactivity
 
-Patient taps a card to select
+**For Drivers:**
+- Driver Name
+- Driver ID
+- Remember Me checkbox
 
-Page 4 — Booking Popup Form
+The login form detects which credential type is being entered and routes to the correct auth endpoint:
+- Email format → `POST /auth/login/admin`
+- Driver ID format → `POST /auth/login/driver`
+
+---
+
+### Auth Architecture
+
+- JWT authentication (short-lived access tokens + long-lived refresh tokens)
+- Role-based access control (RBAC): `super_admin`, `admin`, `driver`
+- Refresh token rotation
+- Secure httpOnly cookies for Remember Me
+- Protected routes per role on the frontend — a driver cannot access admin routes and vice versa
+
+---
+
+## 2. Client Application (Patient-Facing)
+
+### Principles
+
+- No login required. Fully public.
+- Optimized for emergency speed — minimum friction.
+- Built with React.
+- Maps: React-Leaflet + OpenStreetMap.
+
+---
+
+### Page 1 — Landing Page
+
+- Hero background: `Ambulance.jpg`
+- Clear CTA button: **"Request Ambulance Now"**
+- Brief system description
+
+---
+
+### Page 2 — Map Page
+
+- Auto-detect patient GPS via browser Geolocation API
+- Display patient location on Leaflet map
+- Show nearby **available ambulances as markers** grouped by company
+- Each marker popup shows: Company Name, Driver Name, Driver ID, Estimated Arrival Time
+
+---
+
+### Page 3 — Ambulance & Company Selection
+
+Patients see a list of **ambulance companies operating nearby**. Each company card shows:
+
+- Company Name and logo (if available)
+- Number of available units
+- Expandable list of available ambulances under that company
+
+Each ambulance card under a company shows:
+- **Company Name** (never a generic label)
+- **Driver Full Name + Driver ID**
+- Ambulance Number / Unit
+- Estimated arrival time
+- Distance from patient
+- Price estimate
+
+Patient selects a specific ambulance unit from a specific company to proceed.
+
+---
+
+### Page 4 — Booking Popup Form
+
 Appears after ambulance selection:
 
-Patient Name
-Phone Number
-Emergency Description (required)
-Payment Method
-Submit → creates booking request sent to selected company's admin + assigned driver
+- Patient Name
+- Phone Number
+- Emergency Description (required)
+- Payment Method (Cash / Mobile Money / Card)
 
-Page 5 — Real-Time Tracking Page
-After booking confirmation:
+On submit:
+- Booking record created in database with `status: pending`
+- Request sent in real-time via Socket.io to the selected company's admin AND the assigned driver
+- Socket event emitted: `new_booking` → room: `room:booking_{bookingId}`
 
-Live Leaflet map showing:
+---
 
-Ambulance marker moving in real-time
-Patient marker (static or live-updated)
-Route line between them
+### Page 5 — Real-Time Tracking Page
 
+After booking is accepted and ambulance dispatched:
 
-Estimated arrival time (live countdown)
-Distance remaining
-Dispatch info panel showing:
+- Live Leaflet map showing:
+  - Ambulance marker updating in real-time
+  - Patient marker (live GPS)
+  - Route line between them
+- Estimated arrival time (live countdown)
+- Distance remaining
 
-Company Name
-Driver Name + Driver ID
-Ambulance Number
+**Dispatch Info Panel** — must always show (never generic labels):
 
+```
+🚑  [Company Name]
+    Driver: [Driver Full Name]  |  ID: [Driver ID]
+    Unit: [Ambulance Number]
+    📞 Call Driver     📞 Call Company
+```
 
-Real-time via Socket.io / Firebase / WebSockets
+- **Call Driver button** → `tel:[driver_phone]` — opens native phone dialer
+- **Call Company button** → `tel:[company_phone]` — opens native phone dialer
 
-Page 6 — Ratings & Feedback Page
-After trip completion:
+Real-time via Socket.io events:
+- Listen: `ambulance_location_update` → update ambulance marker
+- Emit: `patient_location_update` every 5 seconds → driver and admin see patient moving
 
-Star rating (1–5)
-Written feedback
-Submit → stored and visible to admin
+---
 
+### Page 6 — Ratings & Feedback Page
 
-3. Admin Dashboard
-Pages
+After trip is marked complete by driver:
 
-Login Page (shared with drivers — smart redirect)
-Register New Company Page (sign-up form)
-Dashboard Overview / Home
+- Star rating (1–5)
+- Written feedback field
+- Submit → stored in database, visible to admin
 
-Full-page background: ambulance.jpg
-KPI cards: total bookings, active ambulances, revenue, avg response time
-Quick-access widgets
+---
 
+## 3. Admin Dashboard
 
-Ambulance Management Page
+### Pages
 
-Register new ambulance (Ambulance Number, Driver assignment, GPS capability, Status)
-Activate / Deactivate ambulances
-Monitor availability
-Status auto-updates to Busy when a booking is accepted
+1. Login Page (shared with drivers — smart redirect by role)
+2. Register New Company Page
+3. Dashboard Overview / Home
+   - Full-page background: `ambulance.jpg`
+   - KPI cards: Total Bookings, Active Ambulances, Revenue, Avg Response Time
+   - Quick-access widgets
+4. Ambulance Management Page
+5. Driver Management Page
+6. Booking Requests Page
+7. Real-Time Tracking Map
+8. Payment Management Page
+9. Patient Records Page
+10. Ratings & Feedback Page
+11. Reports & Analytics Page
 
+---
 
-Driver Management (within Ambulance Management)
+### Ambulance Management
 
-Register new driver (creates driver login credentials)
-Edit driver details
-View driver status (available / on-trip / offline)
+- Register new ambulance: Ambulance Number, Driver assignment, GPS capability, Status
+- Activate / Deactivate ambulances
+- Monitor availability
+- Status auto-updates to `busy` when a booking is accepted, back to `available` when trip is completed
 
+---
 
-Booking Requests Page
+### Driver Management (Admin-Side Only)
 
-Incoming emergency requests with:
+Admins register all drivers. No self-serve driver sign-up.
 
-Patient Name, Phone, Emergency Description
-Patient location on Leaflet map
+- Register new driver → system auto-generates Driver ID
+- Share Driver Name + Driver ID with the driver for login
+- Edit driver details
+- View driver status: `available` | `on_trip` | `offline`
+- Assign driver to ambulance unit
 
+---
 
-Actions: Assign Ambulance → Accept → Dispatch
-Dispatched bookings show: Company Name + Driver Name/ID (not generic label)
+### Booking Requests Page
 
+- Fetches from `GET /api/bookings?status=pending`
+- Listens to `new_booking` Socket.io event → new requests appear instantly without page refresh
+- Each request shows: Patient Name, Phone, Emergency Description, Patient location on Leaflet map
+- Admin actions: **Assign Ambulance → Accept → Dispatch**
+- On Accept: calls `PATCH /api/bookings/:id/accept`, emits `booking_accepted` to client + driver
+- On Dispatch: calls `PATCH /api/bookings/:id/dispatch`, emits `ambulance_dispatched`
+- Admin can see driver's response in real-time:
+  - ✅ Driver Accepted → booking status updates to `accepted`
+  - ❌ Driver Denied → admin is notified, can reassign to another driver
+  - ⏳ No response within timeout → admin is notified, request flagged for reassignment
 
-Real-Time Tracking Map
+---
 
-Live map (Leaflet + OpenStreetMap)
-Ambulance location + Patient location
-Real-time via Socket.io / Firebase / WebSockets
+### Real-Time Tracking Map
 
+- Leaflet + OpenStreetMap
+- Live ambulance markers + patient markers per active booking
+- Listens to `ambulance_location_update` and `patient_location_update` Socket.io events
+- Admin can click any active booking marker to see full dispatch info
 
-Payment Management Page
+---
 
-View booking payments
-Confirm / approve payments
-Transaction records
+### Patient Records Page
 
+Patient records are automatically created from booking submissions — no separate registration required.
 
-Ratings & Feedback Page
+Each patient record shows:
+- Patient Name and Phone Number
+- All past and current bookings
+- Emergency history with dates and descriptions
+- Assigned ambulance, driver, and company per booking
+- Payment status per booking
+- Rating and feedback per completed booking
 
-Patient ratings, feedback, service reviews per driver/ambulance
+Admin can:
+- Search by name or phone number
+- Filter by booking status or date range
+- Open a patient detail page showing all bookings for that patient
 
+---
 
-Reports & Analytics Page
+### Payment Management
 
-Reports & Analytics (Page 10)
+- `GET /api/payments` — view all records
+- `PATCH /api/payments/:id/confirm` — confirm payment
+- Transaction history with filters
+
+---
+
+### Ratings & Feedback
+
+- View all patient ratings and feedback
+- Filterable by driver, ambulance, date range
+
+---
+
+### Reports & Analytics
+
 Report Types:
-
-Booking Summary Report
-Revenue / Payments Report
-Ambulance Utilization Report
-Driver Performance Report
-Patient & Feedback Report
-Emergency Response Time Report
+- Booking Summary Report
+- Revenue / Payments Report
+- Ambulance Utilization Report
+- Driver Performance Report
+- Patient & Feedback Report
+- Emergency Response Time Report
 
 Filters (on all reports):
-
-Date range picker (start / end date)
-Ambulance filter
-Driver filter
-Booking status filter
-Payment status filter
+- Date range picker
+- Ambulance filter
+- Driver filter
+- Booking status filter
+- Payment status filter
 
 Export Formats:
-
-PDF (jsPDF or server-side rendering)
-Excel / CSV
-Print view
+- PDF (jsPDF or server-side)
+- Excel / CSV
+- Print view
 
 Charts (Chart.js or Recharts):
+- Bookings over time — line chart
+- Revenue by period — bar chart
+- Ambulance status breakdown — pie chart
+- Average response time trend
+- Rating distribution
 
-Bookings over time — line chart
-Revenue by period — bar chart
-Ambulance status breakdown — pie chart
-Average response time trend
-Rating distribution
+Page UI elements:
+- Date range selector
+- Report type dropdown
+- Generate button
+- Preview panel
+- Export toolbar
 
-UI Elements:
+---
 
-Date range selector
-Report type dropdown
-Generate button
-Preview panel
-Export toolbar (PDF / CSV / Print)
+## 4. Driver App / Dashboard
 
+### Access
 
-4. Driver App / Dashboard
-Access
+Driver logs in via the shared login page using **Driver Name + Driver ID**.
+System detects role `driver` → redirects to Driver Dashboard.
+Driver cannot access any admin routes or pages.
 
-Driver logs in via the shared login page
-System detects role: driver → redirects to Driver Dashboard
+---
 
-Driver Dashboard Pages
-Page 1 — Incoming Request Screen (SafeBoda-style)
+### Page 1 — Incoming Request Screen (SafeBoda-style)
 
-Incoming booking requests appear as a full-screen popup / notification card showing:
+When a new booking is assigned to this driver, a **full-screen popup / notification card** appears showing:
 
-Patient Name
-Emergency Description
-Patient location (static map preview — Leaflet)
-Distance from driver
-Estimated trip time
-
+- Patient Name
+- Emergency Description
+- Patient location on a static Leaflet map preview
+- Distance from driver
+- Estimated trip time
+- Company Name (the company this driver belongs to)
 
 Two action buttons:
+- ✅ **Accept** → confirms booking, driver is dispatched, emits `driver_accepted` event
+- ❌ **Deny** → returns request to admin for reassignment, emits `driver_denied` event
 
-✅ Accept → booking confirmed, driver dispatched
-❌ Deny → request returned to admin for reassignment
+**Timeout:** If driver does not respond within a configurable time (e.g. 30 seconds), request auto-returns to admin and driver is notified.
 
+Admin sees driver's response in real-time on the Booking Requests page.
 
-Timeout: if driver doesn't respond within X seconds, request auto-returns to admin
+---
 
-Page 2 — Active Trip / Navigation Screen
+### Page 2 — Active Trip / Navigation Screen
 
-Live Leaflet map showing:
+After accepting:
 
-Driver's current location (auto-updating via GPS)
-Patient's location (live-updated from patient's device)
-Route line
+- Live Leaflet map showing:
+  - Driver's current location (auto-updating via GPS every 5 seconds)
+  - Patient's location (live-updated from patient's device)
+  - Route line between them
 
+- Trip info panel:
+  - Patient Name
+  - Phone Number → **tap to call** (`tel:` link opens native dialer)
+  - Emergency description
+  - Estimated arrival time
 
-Trip info panel:
+- Action buttons:
+  - **"Mark as Arrived"** → updates booking status to `arrived`
+  - **"Complete Trip"** → updates status to `completed`, triggers rating page on client, emits `trip_completed`
+  - **"Cancel Trip"** → requires reason input, notifies admin
 
-Patient Name + Phone (tap to call)
-Emergency description
-Estimated arrival time
+Driver emits `ambulance_location_update` every 5 seconds → client tracking page and admin map update in real-time.
 
+---
 
-Actions:
+### Page 3 — Trip History
 
-"Mark as Arrived"
-"Complete Trip"
-"Cancel Trip" (with reason)
+- List of all past trips
+- Status, patient info, date, earnings per trip
 
+---
 
+### Page 4 — Profile
 
-Page 3 — Trip History
+- Driver Full Name, Driver ID, Photo
+- Assigned ambulance details: Ambulance Number, Company Name
+- Status toggle: **Available** / **Offline**
 
-List of past trips with status, patient info, earnings
+---
 
-Page 4 — Profile
+## 5. Shared Database Schema
 
-Driver name, ID, photo
-Assigned ambulance details
-Status toggle: Available / Offline
+### bookings table
 
+| Field | Type | Description |
+|---|---|---|
+| id | UUID | Auto-generated |
+| patient_name | string | From booking form |
+| phone | string | From booking form |
+| emergency_description | string | From booking form |
+| payment_method | enum | cash / mobile_money / card |
+| patient_lat | float | From GPS |
+| patient_lng | float | From GPS |
+| company_id | FK | Selected company |
+| ambulance_id | FK | Assigned ambulance |
+| driver_id | FK | Assigned driver |
+| status | enum | pending / accepted / dispatched / arrived / completed / cancelled |
+| payment_status | enum | unpaid / paid / confirmed |
+| rating | int | Null until submitted |
+| feedback | text | Null until submitted |
+| created_at | timestamp | |
+| updated_at | timestamp | |
 
-5. Real-Time Synchronization Architecture
-All three surfaces (Client, Admin, Driver) must stay in sync via real-time channels.
-Events to Synchronize
-EventSenderReceiversNew booking requestClient AppAdmin Dashboard + assigned DriverDriver accepts bookingDriver AppClient App (tracking activates) + AdminDriver denies bookingDriver AppAdmin Dashboard (reassign)Driver location updateDriver App (GPS)Client App (live marker) + Admin mapPatient location updateClient App (GPS)Driver App (live marker) + Admin mapTrip completedDriver AppClient App (rating page shown) + AdminPayment confirmedAdminClient App (receipt / status)
-Tech Stack for Real-Time
+### companies table
+- id, name, phone, email, logo, created_at
 
-Socket.io (primary — room-based per booking ID)
-Firebase Realtime Database (optional fallback / location streams)
-WebSockets (raw WS where Socket.io is overkill)
+### ambulances table
+- id, company_id, ambulance_number, driver_id, gps_capable, status (available/busy/inactive)
 
-Room Strategy
-Each booking creates a Socket.io room: room:booking_{bookingId}
-Client, Driver, and Admin all join this room for that booking's lifecycle.
+### drivers table
+- id, company_id, ambulance_id, full_name, driver_id (e.g. DRV-00123), phone, photo, status (available/on_trip/offline)
 
-6. Dispatch Display — No Generic Labels
-Everywhere a dispatch or ambulance assignment is shown (Client tracking page, Admin booking list, Driver screen), the display must show:
-🚑 [Company Name] — Driver: [Driver Full Name] (#[Driver ID]) — Unit: [Ambulance Number]
-Never display a generic label like "Rescue Unit" or "Driver 1".
+### users table (admins only)
+- id, company_id, full_name, email, password_hash, role (super_admin/admin)
 
-7. Backend API Plan
-Auth
+---
 
-POST /auth/register — company/admin registration
-POST /auth/login — unified login (returns role + tokens)
-POST /auth/refresh — refresh access token
+## 6. Real-Time Socket.io Event Map
+
+All three surfaces join a booking room: `room:booking_{bookingId}`
+
+| Event | Emitter | Listeners | Description |
+|---|---|---|---|
+| `new_booking` | Client App | Admin, Driver | Patient submits booking form |
+| `booking_accepted` | Admin | Client, Driver | Admin accepts booking |
+| `ambulance_dispatched` | Admin | Client, Driver | Admin dispatches ambulance |
+| `driver_accepted` | Driver App | Admin, Client | Driver accepts the trip |
+| `driver_denied` | Driver App | Admin | Driver denies — admin reassigns |
+| `driver_location_update` | Driver App | Client, Admin | GPS every 5 seconds |
+| `patient_location_update` | Client App | Driver, Admin | GPS every 5 seconds |
+| `trip_completed` | Driver App | Client, Admin | Trip ended — show rating page |
+| `payment_confirmed` | Admin | Client | Payment confirmed |
+
+---
+
+## 7. Full Backend API
+
+### Auth
+```
+POST /auth/login/admin         — email + password → returns JWT + role
+POST /auth/login/driver        — driver_name + driver_id → returns JWT + role
+POST /auth/register            — company/admin registration
+POST /auth/refresh             — refresh access token
 POST /auth/logout
 POST /auth/forgot-password
 POST /auth/reset-password
+```
 
-Ambulances & Drivers
+### Companies
+```
+GET  /companies                — list all companies (public — for client map)
+GET  /companies/:id
+```
 
-GET /ambulances — list (with filters)
-POST /ambulances — register new ambulance
-PATCH /ambulances/:id/status — activate/deactivate
-POST /drivers — register new driver (admin only)
-GET /drivers/:id
+### Ambulances & Drivers
+```
+GET  /ambulances               — list with filters
+POST /ambulances               — register new ambulance (admin only)
+PATCH /ambulances/:id/status   — activate / deactivate
+GET  /location/ambulances/nearby  — public, returns available units by proximity
+POST /drivers                  — register new driver (admin only)
+GET  /drivers
+GET  /drivers/:id
+PATCH /drivers/:id
+```
 
-Bookings
+### Bookings
+```
+GET  /bookings                 — list (admin, filtered by company)
+POST /bookings                 — create (public — client app)
+GET  /bookings/:id
+PATCH /bookings/:id/assign     — admin assigns ambulance + driver
+PATCH /bookings/:id/accept     — admin accepts
+PATCH /bookings/:id/dispatch   — admin dispatches
+PATCH /bookings/:id/arrive     — driver marks arrived
+PATCH /bookings/:id/complete   — driver completes trip
+PATCH /bookings/:id/cancel     — driver or admin cancels
+PATCH /bookings/:id/deny       — driver denies request
+```
 
-GET /bookings — list (admin)
-POST /bookings — create (client, public)
-GET /bookings/:id
-PATCH /bookings/:id/assign — assign ambulance
-PATCH /bookings/:id/accept — driver accepts
-PATCH /bookings/:id/deny — driver denies
-PATCH /bookings/:id/dispatch
-PATCH /bookings/:id/complete
+### Location
+```
+POST /location/patient         — client updates patient GPS
+POST /location/driver          — driver updates GPS
+```
 
-Location
+### Payments
+```
+GET  /payments                 — admin views all
+PATCH /payments/:id/confirm    — admin confirms
+```
 
-POST /location/patient — update patient location
-POST /location/driver — update driver location
-GET /location/ambulances/nearby — public, for client map
+### Feedback
+```
+POST /feedback                 — client submits rating
+GET  /feedback                 — admin views all
+```
 
-Payments
+### Reports
+```
+GET  /reports/:type?startDate=&endDate=&ambulanceId=&driverId=&status=&paymentStatus=
+```
 
-GET /payments
-PATCH /payments/:id/confirm
+---
 
-Feedback
+## 8. Frontend Folder Structure (Monorepo)
 
-POST /feedback — client submits
-GET /feedback — admin views
-
-Reports
-
-GET /reports/:type?startDate=&endDate=&... — filtered report data
-
-
-8. Frontend Architecture
-Folder Structure (Monorepo recommended)
+```
 /ambulance-system
-  /client-app          ← Patient React app (public)
+  /client-app                  ← Patient React app (public)
     /src
-      /pages           ← Landing, Map, Tracking, Feedback
-      /components      ← AmbulanceCard, BookingForm, MapView, DispatchInfo
-      /hooks           ← useGeolocation, useSocket, useBooking
-      /services        ← api.js, socket.js
-      /store           ← Zustand or Redux (booking state, location state)
-  
-  /admin-dashboard     ← Admin React app (protected)
+      /pages                   ← Landing, Map, Tracking, Feedback
+      /components              ← AmbulanceCard, CompanyCard, BookingForm, MapView, DispatchInfo
+      /hooks                   ← useGeolocation, useSocket, useBooking
+      /services                ← api.js, socket.js
+      /store                   ← Zustand (booking state, location state)
+
+  /admin-dashboard             ← Admin React app (protected)
     /src
-      /pages           ← Login, Register, Dashboard, Ambulances, Bookings, Tracking, Payments, Reports
-      /components      ← Sidebar, KPICard, BookingTable, MapPanel, ReportChart
-      /hooks           ← useAuth, useSocket, useReports
-      /services        ← api.js, socket.js
-      /store           ← Auth store, booking store
-  
-  /driver-app          ← Driver React app (protected, role-gated)
+      /pages                   ← Login, Register, Dashboard, Ambulances, Drivers, Bookings,
+                                  Tracking, Payments, PatientRecords, Feedback, Reports
+      /components              ← Sidebar, KPICard, BookingTable, MapPanel, ReportChart, DriverCard
+      /hooks                   ← useAuth, useSocket, useReports
+      /services                ← api.js, socket.js
+      /store                   ← Auth store, booking store
+
+  /driver-app                  ← Driver React app (role-gated)
     /src
-      /pages           ← Login (shared), RequestScreen, TripScreen, History, Profile
-      /components      ← RequestCard, LiveMap, TripInfoPanel
-      /hooks           ← useDriverLocation, useSocket, useTrip
-      /services        ← api.js, socket.js
-      /store           ← Trip store, location store
-  
-  /backend             ← Node.js / Express API
+      /pages                   ← Login (shared), RequestScreen, TripScreen, History, Profile
+      /components              ← RequestCard, LiveMap, TripInfoPanel, CallButton
+      /hooks                   ← useDriverLocation, useSocket, useTrip
+      /services                ← api.js, socket.js
+      /store                   ← Trip store, location store
+
+  /backend                     ← Node.js / Express
     /src
       /routes
       /controllers
-      /models          ← Sequelize (SQLite dev / PostgreSQL prod)
-      /middleware      ← auth, rbac, rateLimit
-      /socket          ← Socket.io event handlers
-      /services        ← location, notification, report generation
-State Management
+      /models                  ← Sequelize (SQLite dev / PostgreSQL prod)
+      /middleware               ← auth, rbac, rateLimit
+      /socket                  ← Socket.io event handlers
+      /services                ← location, notification, report generation
+```
 
-Zustand (recommended — lightweight, works well for real-time state)
-Or Redux Toolkit for larger teams
+---
 
-Map
+## 9. Dispatch Display Rule — No Generic Labels
 
-React-Leaflet + OpenStreetMap tiles — zero API key required
-Leaflet.Routing.Machine for route lines
+Everywhere a dispatch or assignment is shown — on the client tracking page, admin booking list, and driver screen — the display must always be:
 
+```
+🚑  [Company Name]
+    Driver: [Driver Full Name]  |  ID: [Driver ID]
+    Unit:   [Ambulance Number]
+    📞 Call Driver     📞 Call Company
+```
 
-9. Key Design Principles
+- **Call Driver** → `tel:[driver_phone]`
+- **Call Company** → `tel:[company_phone]`
 
-No generic dispatch labels — always show Company + Driver Name + ID
-One login, smart routing — role detected server-side, redirect client-side
-Driver flow mirrors SafeBoda — full-screen incoming request, accept/deny with timeout
-Everything syncs — booking state changes propagate instantly to all three surfaces via Socket.io rooms
-Public client — zero friction for patients in emergencies
-Secure admin/driver — RBAC-protected, JWT + refresh tokens
+**Never** display a generic label like "Rescue Unit", "Driver 1", or "Ambulance A".
 
+---
 
-This prompt is the single source of truth for all three surfaces of the Ambulance Emergency System. All agents, developers, and code generators must harmonise their output with this specification.
+## 10. Key Design Rules
+
+1. **One login page, smart routing** — role detected server-side, redirect client-side
+2. **Admins use email + password** — drivers use name + driver ID
+3. **Drivers created by admin only** — no self-serve driver registration
+4. **Each company's units show separately on client** — patients see and choose by company
+5. **Dispatch always shows real names** — Company Name + Driver Name + Driver ID + call buttons
+6. **Admin sees driver responses in real-time** — accepted, denied, or timed out
+7. **Driver app is SafeBoda-style** — full-screen incoming request, accept/deny with timeout
+8. **Everything syncs** — all booking state changes propagate instantly to all three surfaces via Socket.io rooms
+9. **Single database** — client app, admin, and driver app all read/write the same tables
+10. **Maps everywhere use Leaflet + OpenStreetMap** — no Google Maps, no API key required

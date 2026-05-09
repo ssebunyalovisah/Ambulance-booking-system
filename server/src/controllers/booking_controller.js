@@ -1,64 +1,130 @@
 const db = require('../config/db');
+const crypto = require('crypto');
 
-exports.updateBookingStatus = async (req, res) => {
-    const { id } = req.params;
-    const { status, ambulance_id } = req.body;
-    
+const broadcastBookingUpdate = (req, bookingId, eventName, payload = {}) => {
+    const io = req.app.get('io');
+    if (io) {
+        io.to(`room:booking_${bookingId}`).emit(eventName, payload);
+    }
+};
+
+exports.getBookings = async (req, res) => {
+    const { company_id, role } = req.user;
     try {
-        let queryStr = 'UPDATE bookings SET status = $1 WHERE id = $2';
+        let queryStr = `
+            SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
+            FROM bookings b
+            LEFT JOIN companies c ON b.company_id = c.id
+            LEFT JOIN drivers d ON b.driver_id = d.id
+            LEFT JOIN ambulances a ON b.ambulance_id = a.id
+            WHERE b.company_id = $1 ORDER BY b.created_at DESC
+        `;
+        let params = [company_id];
+
+        if (role === 'super_admin') {
+            queryStr = `
+                SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
+                FROM bookings b
+                LEFT JOIN companies c ON b.company_id = c.id
+                LEFT JOIN drivers d ON b.driver_id = d.id
+                LEFT JOIN ambulances a ON b.ambulance_id = a.id
+                ORDER BY b.created_at DESC
+            `;
+            params = [];
+        }
+
+        const result = await db.query(queryStr, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.getBooking = async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
+             FROM bookings b
+             LEFT JOIN companies c ON b.company_id = c.id
+             LEFT JOIN drivers d ON b.driver_id = d.id
+             LEFT JOIN ambulances a ON b.ambulance_id = a.id
+             WHERE b.id = $1`, 
+            [req.params.id]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.createBooking = async (req, res) => {
+    const { patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id, driver_id } = req.body;
+    const id = crypto.randomUUID();
+
+    try {
+        await db.query(
+            `INSERT INTO bookings (id, patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id, driver_id, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')`,
+            [id, patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id || null, driver_id || null]
+        );
+
+        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        const booking = bookingRes.rows[0];
+
+        // Notify admins and drivers via Socket.io
+        const io = req.app.get('io');
+        if (io) {
+            // Everyone joins the room from the client side using the ID
+            // Broadcast a new_booking event so admins and driver can see it
+            io.emit('new_booking', booking);
+        }
+
+        res.status(201).json(booking);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+const changeStatus = async (id, status, res, req, eventName) => {
+    const { ambulance_id, driver_id } = req.body;
+    try {
+        let queryStr = 'UPDATE bookings SET status = $1, updated_at = CURRENT_TIMESTAMP';
         let params = [status, id];
         
         if (ambulance_id) {
-            queryStr = 'UPDATE bookings SET status = $1, ambulance_id = $3 WHERE id = $2';
+            queryStr += ', ambulance_id = $' + (params.length + 1);
             params.push(ambulance_id);
         }
+        if (driver_id) {
+            queryStr += ', driver_id = $' + (params.length + 1);
+            params.push(driver_id);
+        }
         
-        const result = await db.query(queryStr, params);
+        queryStr += ' WHERE id = $2';
         
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Booking not found' });
+        await db.query(queryStr, params);
+        
+        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
+        
+        const booking = bookingRes.rows[0];
+        
+        // Update driver and ambulance status appropriately
+        if (status === 'dispatched' || status === 'accepted') {
+            if (booking.ambulance_id) await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['busy', booking.ambulance_id]);
+            if (booking.driver_id) await db.query('UPDATE drivers SET status = $1 WHERE id = $2', ['on_trip', booking.driver_id]);
+        } else if (status === 'completed' || status === 'cancelled') {
+            if (booking.ambulance_id) await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['available', booking.ambulance_id]);
+            if (booking.driver_id) await db.query('UPDATE drivers SET status = $1 WHERE id = $2', ['available', booking.driver_id]);
         }
 
-        // Handle ambulance status changes
-        if (status === 'ACCEPTED' || status === 'DISPATCHED') {
-            const bookingResult = await db.query('SELECT ambulance_id FROM bookings WHERE id = $1', [id]);
-            const ambId = bookingResult.rows[0].ambulance_id;
-            if (ambId) {
-                await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['BUSY', ambId]);
-            }
-        } else if (status === 'COMPLETED' || status === 'CANCELLED') {
-            const bookingResult = await db.query('SELECT ambulance_id FROM bookings WHERE id = $1', [id]);
-            const ambId = bookingResult.rows[0].ambulance_id;
-            if (ambId) {
-                await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['AVAILABLE', ambId]);
-            }
+        if (eventName) {
+            broadcastBookingUpdate(req, id, eventName, booking);
         }
-        
-        // Fetch full booking data for emitting
-        const updated = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
-        const booking = updated.rows[0];
-        
-        const io = req.app.get('io');
-        // Notify patient in their specific room
-        if (io) {
-            io.to(`room_booking_${id}`).emit('booking_status_update', {
-                status: booking.status,
-                ambulance_id: booking.ambulance_id
-            });
-            
-            // Also notify dashboard to update the lists
-            io.to(`company_dashboard_${booking.company_id}`).emit('booking_status_changed', booking);
-            io.to('super_dashboard').emit('booking_status_changed', booking);
-            
-            // If ambulance status changed, notify dashboard
-            const ambId = booking.ambulance_id;
-            if (ambId) {
-                const ambResult = await db.query('SELECT * FROM ambulances WHERE id = $1', [ambId]);
-                io.to(`company_dashboard_${booking.company_id}`).emit('ambulance_status_changed', ambResult.rows[0]);
-                io.to('super_dashboard').emit('ambulance_status_changed', ambResult.rows[0]);
-            }
-        }
-        
         res.json(booking);
     } catch (err) {
         console.error(err);
@@ -66,19 +132,42 @@ exports.updateBookingStatus = async (req, res) => {
     }
 };
 
-exports.getAdminBookings = async (req, res) => {
-    const { company_id, role } = req.admin;
+exports.assignBooking = async (req, res) => {
+    const { id } = req.params;
+    const { ambulance_id, driver_id } = req.body;
     try {
-        let queryStr = 'SELECT *, pickup_latitude as lat, pickup_longitude as lng FROM bookings WHERE company_id = $1 ORDER BY created_at DESC';
-        let params = [company_id];
+        await db.query('UPDATE bookings SET ambulance_id = $1, driver_id = $2 WHERE id = $3', [ambulance_id, driver_id, id]);
+        
+        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
+        
+        const booking = bookingRes.rows[0];
+        const io = req.app.get('io');
+        if (io) io.emit('booking_assigned', booking);
+        res.json(booking);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
 
-        if (role === 'SUPER_ADMIN') {
-            queryStr = 'SELECT *, pickup_latitude as lat, pickup_longitude as lng FROM bookings ORDER BY created_at DESC';
-            params = [];
-        }
+exports.acceptBooking = async (req, res) => changeStatus(req.params.id, 'accepted', res, req, 'booking_accepted');
+exports.dispatchBooking = async (req, res) => changeStatus(req.params.id, 'dispatched', res, req, 'ambulance_dispatched');
+exports.arriveBooking = async (req, res) => changeStatus(req.params.id, 'arrived', res, req, 'driver_arrived');
+exports.completeBooking = async (req, res) => changeStatus(req.params.id, 'completed', res, req, 'trip_completed');
+exports.cancelBooking = async (req, res) => changeStatus(req.params.id, 'cancelled', res, req, 'booking_cancelled');
 
-        const result = await db.query(queryStr, params);
-        res.json(result.rows);
+exports.denyBooking = async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('UPDATE bookings SET ambulance_id = NULL, driver_id = NULL WHERE id = $1', [id]);
+        
+        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
+        
+        const booking = bookingRes.rows[0];
+        broadcastBookingUpdate(req, id, 'driver_denied', booking);
+        res.json(booking);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });

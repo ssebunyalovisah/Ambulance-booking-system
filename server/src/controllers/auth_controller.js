@@ -3,25 +3,24 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-// In-memory store for password reset tokens (use a DB table in production)
 const passwordResetTokens = new Map();
 
-const generateAccessToken = (admin) => {
+const generateAccessToken = (user) => {
     return jwt.sign(
-        { id: admin.id, company_id: admin.company_id, role: admin.role },
+        { id: user.id, company_id: user.company_id, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: '15m' }
     );
 };
 
-const generateRefreshToken = async (adminId) => {
+const generateRefreshToken = async (userId) => {
     const token = crypto.randomBytes(40).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiry
+    expiresAt.setDate(expiresAt.getDate() + 30); 
 
     await db.query(
-        'INSERT INTO refresh_tokens (admin_id, token, expires_at) VALUES ($1, $2, $3)',
-        [adminId, token, expiresAt.toISOString()]
+        'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+        [userId, token, expiresAt.toISOString()]
     );
 
     return token;
@@ -31,39 +30,87 @@ exports.signup = async (req, res) => {
     const { name, companyName, email, password, role } = req.body;
 
     try {
-        // Check if admin already exists
-        const existingAdmin = await db.query('SELECT * FROM admins WHERE email = $1', [email]);
-        if (existingAdmin.rowCount > 0) {
-            return res.status(400).json({ error: 'Admin with this email already exists' });
+        // Check if email already exists in users or companies
+        const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+        const existingCompany = await db.query('SELECT id FROM companies WHERE email = $1', [email]);
+        
+        if (existingUser.rowCount > 0 || existingCompany.rowCount > 0) {
+            return res.status(400).json({ error: 'This email is already registered' });
         }
 
-        // Create company first
+        const normalizedRole = (role || 'admin').toLowerCase();
+
         const companyResult = await db.query(
-            'INSERT INTO companies (name, contact_email) VALUES ($1, $2) RETURNING id',
+            'INSERT INTO companies (name, email) VALUES ($1, $2)',
             [companyName, email]
         );
-        const companyId = companyResult.rows && companyResult.rows.length > 0 ? companyResult.rows[0].id : companyResult.lastID;
+        const companyId = companyResult.lastID;
 
-        // Hash password
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        // Create admin
         const adminResult = await db.query(
-            'INSERT INTO admins (company_id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-            [companyId, name, email, passwordHash, role || 'ADMIN']
+            'INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+            [companyId, name, email, passwordHash, normalizedRole]
         );
-        const adminId = adminResult.rows && adminResult.rows.length > 0 ? adminResult.rows[0].id : adminResult.lastID;
+        const adminId = adminResult.lastID;
 
         res.status(201).json({
-            message: 'Admin registered successfully',
+            message: 'Company and Admin registered successfully',
             admin: { 
                 id: adminId, 
                 name, 
                 email, 
                 company_id: companyId, 
                 company_name: companyName,
-                role: role || 'ADMIN' 
+                role: normalizedRole
+            }
+        });
+    } catch (err) {
+        console.error('Signup error:', err);
+        res.status(500).json({ error: 'Failed to create account. Please try again later.' });
+    }
+};
+
+exports.loginAdmin = async (req, res) => {
+    const { email, password, rememberMe } = req.body;
+
+    try {
+        const result = await db.query(
+            `SELECT u.*, c.name as company_name 
+             FROM users u 
+             JOIN companies c ON u.company_id = c.id 
+             WHERE u.email = $1`, 
+            [email]
+        );
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const accessToken = generateAccessToken(user);
+        let refreshToken = null;
+
+        if (rememberMe) {
+            refreshToken = await generateRefreshToken(user.id);
+        }
+
+        res.json({
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                name: user.full_name,
+                email: user.email,
+                role: user.role,
+                company_id: user.company_id,
+                company_name: user.company_name
             }
         });
     } catch (err) {
@@ -72,45 +119,45 @@ exports.signup = async (req, res) => {
     }
 };
 
-exports.login = async (req, res) => {
-    const { email, password, rememberMe } = req.body;
+exports.loginDriver = async (req, res) => {
+    const { driver_name, driver_id, rememberMe } = req.body;
 
     try {
         const result = await db.query(
-            `SELECT a.*, c.name as company_name 
-             FROM admins a 
-             JOIN companies c ON a.company_id = c.id 
-             WHERE a.email = $1`, 
-            [email]
+            `SELECT d.*, c.name as company_name 
+             FROM drivers d 
+             JOIN companies c ON d.company_id = c.id 
+             WHERE LOWER(TRIM(d.driver_id)) = LOWER(TRIM($1)) AND LOWER(TRIM(d.full_name)) = LOWER(TRIM($2))`, 
+            [driver_id, driver_name]
         );
-        const admin = result.rows[0];
+        const driver = result.rows[0];
 
-        if (!admin) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+        if (!driver) {
+            return res.status(401).json({ error: 'Invalid driver credentials' });
         }
 
-        const isMatch = await bcrypt.compare(password, admin.password_hash);
-        if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
+        const userPayload = {
+            id: driver.id,
+            company_id: driver.company_id,
+            role: 'driver'
+        };
 
-        const accessToken = generateAccessToken(admin);
+        const accessToken = generateAccessToken(userPayload);
         let refreshToken = null;
-
-        if (rememberMe) {
-            refreshToken = await generateRefreshToken(admin.id);
-        }
+        
+        // We can skip refresh token for drivers for now, or just use user_id = driver.id + 1000000. Let's just issue token.
 
         res.json({
             accessToken,
             refreshToken,
-            admin: {
-                id: admin.id,
-                name: admin.name,
-                email: admin.email,
-                role: admin.role,
-                company_id: admin.company_id,
-                company_name: admin.company_name
+            user: {
+                id: driver.id,
+                name: driver.full_name,
+                driver_id: driver.driver_id,
+                role: 'driver',
+                company_id: driver.company_id,
+                company_name: driver.company_name,
+                ambulance_id: driver.ambulance_id
             }
         });
     } catch (err) {
@@ -137,18 +184,17 @@ exports.refreshToken = async (req, res) => {
             return res.status(401).json({ error: 'Invalid or expired refresh token' });
         }
 
-        const adminResult = await db.query('SELECT * FROM admins WHERE id = $1', [refreshTokenEntry.admin_id]);
-        const admin = adminResult.rows[0];
+        const userResult = await db.query('SELECT * FROM users WHERE id = $1', [refreshTokenEntry.user_id]);
+        const user = userResult.rows[0];
 
-        if (!admin) {
+        if (!user) {
             return res.status(401).json({ error: 'User not found' });
         }
 
-        const accessToken = generateAccessToken(admin);
+        const accessToken = generateAccessToken(user);
         
-        // Rotate refresh token
         await db.query('DELETE FROM refresh_tokens WHERE id = $1', [refreshTokenEntry.id]);
-        const newRefreshToken = await generateRefreshToken(admin.id);
+        const newRefreshToken = await generateRefreshToken(user.id);
 
         res.json({ accessToken, refreshToken: newRefreshToken });
     } catch (err) {
@@ -172,12 +218,25 @@ exports.logout = async (req, res) => {
 
 exports.getMe = async (req, res) => {
     try {
+        if (req.user.role === 'driver') {
+            const result = await db.query(
+                `SELECT d.*, c.name as company_name 
+                 FROM drivers d 
+                 JOIN companies c ON d.company_id = c.id 
+                 WHERE d.id = $1`, 
+                [req.user.id]
+            );
+            if (result.rowCount === 0) return res.status(404).json({ error: 'Driver not found' });
+            const d = result.rows[0];
+            return res.json({ id: d.id, name: d.full_name, driver_id: d.driver_id, role: 'driver', company_id: d.company_id, company_name: d.company_name, ambulance_id: d.ambulance_id });
+        }
+
         const result = await db.query(
-            `SELECT a.id, a.name, a.email, a.role, a.company_id, c.name as company_name 
-             FROM admins a 
-             JOIN companies c ON a.company_id = c.id 
-             WHERE a.id = $1`, 
-            [req.admin.id]
+            `SELECT u.id, u.full_name as name, u.email, u.role, u.company_id, c.name as company_name 
+             FROM users u 
+             JOIN companies c ON u.company_id = c.id 
+             WHERE u.id = $1`, 
+            [req.user.id]
         );
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'User not found' });
@@ -193,20 +252,17 @@ exports.forgotPassword = async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     try {
-        const result = await db.query('SELECT id, name FROM admins WHERE email = $1', [email]);
-        // Always return 200 to prevent email enumeration
+        const result = await db.query('SELECT id, full_name FROM users WHERE email = $1', [email]);
         if (result.rowCount === 0) {
             return res.json({ message: 'If that email exists, a reset link has been sent.' });
         }
 
-        const admin = result.rows[0];
+        const user = result.rows[0];
         const resetToken = crypto.randomBytes(32).toString('hex');
         const expires = Date.now() + 1000 * 60 * 60; // 1 hour
 
-        passwordResetTokens.set(resetToken, { adminId: admin.id, expires });
+        passwordResetTokens.set(resetToken, { userId: user.id, expires });
 
-        // In production: send email with reset link
-        // For dev: log the token so it can be used manually
         const resetLink = `http://localhost:5174/reset-password?token=${resetToken}`;
         console.log(`\n[DEV] Password reset link for ${email}:\n${resetLink}\n`);
 
@@ -232,9 +288,8 @@ exports.resetPassword = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        await db.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [passwordHash, entry.adminId]);
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, entry.userId]);
 
-        // Invalidate the token
         passwordResetTokens.delete(token);
 
         res.json({ message: 'Password reset successfully. You can now log in.' });

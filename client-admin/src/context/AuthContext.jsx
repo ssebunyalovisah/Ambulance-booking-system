@@ -136,19 +136,30 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    const login = async (email, password, rememberMe) => {
-        const response = await api.post('/auth/login', { email, password, rememberMe });
-        const { accessToken, refreshToken, admin } = response.data;
+    const login = async (identifier, credential, rememberMe) => {
+        let response;
+        if (identifier.includes('@')) {
+            response = await api.post('/auth/login/admin', { email: identifier, password: credential, rememberMe });
+        } else {
+            response = await api.post('/auth/login/driver', { driver_id: identifier, driver_name: credential, rememberMe });
+        }
+        
+        const { accessToken, refreshToken, user } = response.data;
         localStorage.setItem('adminToken', accessToken);
         if (refreshToken) {
             localStorage.setItem('adminRefreshToken', refreshToken);
         }
-        setAdmin(admin);
-        return admin;
+        
+        if (user.role === 'driver') {
+            window.location.href = 'http://localhost:5175'; // Redirect to driver app in dev
+        } else {
+            setAdmin(user);
+            return user;
+        }
     };
 
     const signup = async (userData) => {
-        const response = await api.post('/auth/signup', userData);
+        const response = await api.post('/auth/register', userData);
         return response.data;
     };
 

@@ -68,22 +68,40 @@ export default function AdminMap({ ambulances, activeRequests }) {
                 icon={amb.status === 'AVAILABLE' ? ambulanceIconAvailable : ambulanceIconBusy}
             >
                 <Popup>
-                    <div className="p-1">
-                        <p className="font-bold text-slate-800">{amb.ambulance_number}</p>
-                        <p className="text-xs text-slate-500">Driver: {amb.driver_name}</p>
-                        <p className={`text-xs font-bold mt-1 ${amb.status === 'AVAILABLE' ? 'text-green-600' : 'text-red-600'}`}>
-                            {amb.status}
-                        </p>
+                    <div className="p-2 min-w-[200px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">🚑</span>
+                            <p className="font-bold text-slate-900 leading-none">{amb.company_name || 'Emergency Unit'}</p>
+                        </div>
+                        <div className="space-y-1 border-t border-slate-100 pt-2">
+                            <p className="text-xs text-slate-600 flex justify-between">
+                                <span className="font-semibold">Driver:</span> 
+                                <span>{amb.driver_name || 'Not Assigned'}</span>
+                            </p>
+                            <p className="text-xs text-slate-600 flex justify-between">
+                                <span className="font-semibold">ID:</span> 
+                                <span>{amb.driver_uid || 'N/A'}</span>
+                            </p>
+                            <p className="text-xs text-slate-600 flex justify-between">
+                                <span className="font-semibold">Unit:</span> 
+                                <span>{amb.ambulance_number}</span>
+                            </p>
+                            <div className="flex items-center justify-between mt-2 pt-1">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${amb.status === 'AVAILABLE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {amb.status}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </Popup>
             </Marker>
         ))}
 
         {/* Active Requests */}
-        {activeRequests?.filter(r => r.lat && r.lng).map(req => (
+        {activeRequests?.filter(r => (r.patient_lat || r.lat) && (r.patient_lng || r.lng)).map(req => (
             <Marker 
                 key={req.id}
-                position={[req.lat, req.lng]}
+                position={[req.patient_lat || req.lat, req.patient_lng || req.lng]}
                 icon={requestIcon}
             >
                 <Popup>

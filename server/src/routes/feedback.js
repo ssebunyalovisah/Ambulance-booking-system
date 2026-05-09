@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
 // GET /api/admin/feedback - Get all feedback (Admin)
 const auth = require('../middlewares/auth');
 router.get('/admin/all', auth, async (req, res) => {
-    const { company_id } = req.admin;
+    const { company_id } = req.user;
     try {
         const sql = `
             SELECT f.*, b.patient_name, a.ambulance_number, a.driver_name

@@ -28,13 +28,13 @@ class SocketService {
 
     joinBookingRoom(bookingId) {
         if (this.socket) {
-            this.socket.emit('join_booking_room', bookingId);
+            this.socket.emit('join_booking', bookingId);
         }
     }
 
-    onNewBookingRequest(callback) {
+    onNewBooking(callback) {
         if (this.socket) {
-            this.socket.on('new_booking_request', callback);
+            this.socket.on('new_booking', callback);
         }
     }
 
@@ -44,21 +44,21 @@ class SocketService {
         }
     }
 
-    emitDriverLocation(bookingId, location) {
+    emitDriverLocation(data) {
         if (this.socket && this.socket.connected) {
-            this.socket.emit('update_driver_location', { booking_id: bookingId, location });
+            this.socket.emit('driver_location_update', data);
         }
     }
 
     emitAcceptBooking(bookingId) {
         if (this.socket) {
-            this.socket.emit('accept_booking', { booking_id: bookingId });
+            this.socket.emit('driver_accepted', { bookingId });
         }
     }
 
     emitDenyBooking(bookingId) {
         if (this.socket) {
-            this.socket.emit('deny_booking', { booking_id: bookingId });
+            this.socket.emit('driver_denied', { bookingId });
         }
     }
 

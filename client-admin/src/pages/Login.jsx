@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2, Ambulance, Eye, EyeOff, Shield } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [credential, setCredential] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -13,16 +13,20 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const isDriver = identifier && !identifier.includes('@') && identifier.startsWith('DRV-');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     
     try {
-      await login(email, password, rememberMe);
-      navigate('/');
+      await login(identifier, credential, rememberMe);
+      if (!isDriver) {
+          navigate('/');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Invalid email or password');
+      setError(err.response?.data?.error || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }
@@ -99,41 +103,45 @@ const Login = () => {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 ml-1">Email Address</label>
+              <label className="text-sm font-semibold text-slate-300 ml-1">Email Address or Driver ID</label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-orange-500 transition-colors" />
                 <input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="login-identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder:text-slate-600 text-sm"
-                  placeholder="admin@company.com"
+                  placeholder="admin@company.com or DRV-1234"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 ml-1">Password</label>
+              <label className="text-sm font-semibold text-slate-300 ml-1">
+                {isDriver ? 'Driver Full Name' : 'Password'}
+              </label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-orange-500 transition-colors" />
+                {!isDriver && <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-orange-500 transition-colors" />}
                 <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-12 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder:text-slate-600 text-sm"
-                  placeholder="••••••••"
+                  id="login-credential"
+                  type={isDriver ? 'text' : (showPassword ? 'text' : 'password')}
+                  value={credential}
+                  onChange={(e) => setCredential(e.target.value)}
+                  className={`w-full bg-slate-900 border border-slate-700 text-white ${!isDriver ? 'pl-12 pr-12' : 'px-4'} py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder:text-slate-600 text-sm`}
+                  placeholder={isDriver ? 'e.g. John Doe' : '••••••••'}
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                {!isDriver && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                )}
               </div>
             </div>
 

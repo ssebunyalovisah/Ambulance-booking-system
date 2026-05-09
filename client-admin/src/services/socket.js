@@ -1,20 +1,18 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://ambulance-booking-system-4ytj.onrender.com';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
 class AdminSocketService {
     constructor() {
         this.socket = null;
     }
 
-    connect(companyId) {
+    connect(data) {
         if (!this.socket) {
             this.socket = io(SOCKET_URL);
-            this.companyId = companyId;
-
             this.socket.on('connect', () => {
                 console.log('Admin socket connected');
-                this.socket.emit('join_dashboard', this.companyId);
+                this.socket.emit('join_dashboard', data);
             });
         }
         return this.socket;
@@ -22,19 +20,38 @@ class AdminSocketService {
 
     onNewBooking(callback) {
         if (this.socket) {
-            this.socket.on('new_booking_request', callback);
+            this.socket.on('new_booking', callback);
         }
     }
 
-    onAmbulanceLocation(callback) {
+    onDriverLocation(callback) {
         if (this.socket) {
-            this.socket.on('ambulance_live_location', callback);
+            this.socket.on('driver_location_update', callback);
+        }
+    }
+
+    onPatientLocation(callback) {
+        if (this.socket) {
+            this.socket.on('patient_location_update', callback);
         }
     }
 
     onBookingStatusUpdate(callback) {
         if (this.socket) {
-            this.socket.on('booking_status_changed', callback);
+            // These are all the events that indicate a booking status change in the spec
+            const events = [
+                'booking_assigned',
+                'booking_accepted',
+                'ambulance_dispatched',
+                'driver_arrived',
+                'trip_completed',
+                'booking_cancelled',
+                'driver_denied'
+            ];
+            
+            events.forEach(evt => {
+                this.socket.on(evt, callback);
+            });
         }
     }
     

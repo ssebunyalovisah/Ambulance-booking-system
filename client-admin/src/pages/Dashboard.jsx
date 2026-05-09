@@ -32,8 +32,8 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         const [ambRes, bookRes] = await Promise.all([
-            api.get('/admin/ambulances'),
-            api.get('/admin/bookings')
+            api.get('/ambulances'),
+            api.get('/bookings')
         ]);
         setAmbulances(ambRes.data);
         setRequests(bookRes.data);
@@ -46,7 +46,7 @@ const Dashboard = () => {
     if (admin?.company_id) {
       adminSocket.connect({ 
         companyId: admin.company_id, 
-        isSuper: admin.role === 'SUPER_ADMIN' 
+        isSuper: admin.role === 'super_admin' || admin.role === 'SUPER_ADMIN'
       });
     }
     
@@ -54,7 +54,7 @@ const Dashboard = () => {
         setRequests(prev => [newBooking, ...prev]);
     });
 
-    adminSocket.onAmbulanceLocation((data) => {
+    adminSocket.onDriverLocation((data) => {
         setAmbulances(prev => prev.map(a => a.id === data.ambulanceId ? { ...a, lat: data.lat, lng: data.lng } : a));
     });
 
@@ -65,11 +65,11 @@ const Dashboard = () => {
     return () => {
         adminSocket.disconnect();
     };
-  }, []);
+  }, [admin]);
 
   const handleAcceptRequest = async (id, ambulanceId) => {
       try {
-          await api.patch(`/admin/bookings/${id}/status`, { status: 'ACCEPTED', ambulance_id: ambulanceId });
+          await api.patch(`/bookings/${id}/accept`, { ambulance_id: ambulanceId });
       } catch (err) {
           console.error('Error accepting request:', err);
       }
@@ -77,7 +77,7 @@ const Dashboard = () => {
 
   const handleRejectRequest = async (id) => {
     try {
-        await api.patch(`/admin/bookings/${id}/status`, { status: 'CANCELLED' });
+        await api.patch(`/bookings/${id}/cancel`);
     } catch (err) {
         console.error('Error cancelling request:', err);
     }

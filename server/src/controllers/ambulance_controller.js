@@ -1,19 +1,24 @@
 const db = require('../config/db');
 
 exports.registerAmbulance = async (req, res) => {
-    const { ambulance_number, driver_name, driver_contact, lat, lng } = req.body;
-    const { company_id } = req.admin;
+    const { ambulance_number, driver_id, gps_capable } = req.body;
+    const { company_id } = req.user;
 
     try {
-        const result = await db.query(
-            'INSERT INTO ambulances (company_id, ambulance_number, driver_name, driver_contact, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6)',
-            [company_id, ambulance_number, driver_name, driver_contact, lat, lng]
+        const insertRes = await db.query(
+            'INSERT INTO ambulances (company_id, ambulance_number, driver_id, gps_capable, status) VALUES ($1, $2, $3, $4, $5)',
+            [company_id, ambulance_number, driver_id || null, gps_capable !== undefined ? gps_capable : true, 'available']
         );
         
-        // SQLite doesn't support RETURNING * in all versions/drivers easily via db.run
-        // So we fetch the inserted row if needed, or just return success
-        const newAmbulance = await db.query('SELECT * FROM ambulances WHERE id = $1', [result.lastID]);
-        res.status(201).json(newAmbulance.rows[0]);
+        const newAmbulanceRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [insertRes.lastID]);
+        const newAmbulance = newAmbulanceRes.rows[0];
+        
+        // Update driver's ambulance_id if assigned
+        if (driver_id) {
+            await db.query('UPDATE drivers SET ambulance_id = $1 WHERE id = $2', [newAmbulance.id, driver_id]);
+        }
+
+        res.status(201).json(newAmbulance);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -21,14 +26,25 @@ exports.registerAmbulance = async (req, res) => {
 };
 
 exports.getAmbulances = async (req, res) => {
-    const { company_id, role } = req.admin;
+    const { company_id, role } = req.user;
     try {
-        let queryStr = 'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances WHERE company_id = $1';
-        let params = [company_id];
+        let queryStr;
+        let params = [];
 
-        if (role === 'SUPER_ADMIN') {
-            queryStr = 'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances';
-            params = [];
+        if (role === 'super_admin') {
+            queryStr = `
+                SELECT a.*, d.full_name as driver_name, d.driver_id as driver_uid, c.name as company_name 
+                FROM ambulances a 
+                LEFT JOIN drivers d ON a.driver_id = d.id 
+                LEFT JOIN companies c ON a.company_id = c.id`;
+        } else {
+            queryStr = `
+                SELECT a.*, d.full_name as driver_name, d.driver_id as driver_uid, c.name as company_name 
+                FROM ambulances a 
+                LEFT JOIN drivers d ON a.driver_id = d.id 
+                LEFT JOIN companies c ON a.company_id = c.id
+                WHERE a.company_id = $1`;
+            params = [company_id];
         }
 
         const result = await db.query(queryStr, params);
@@ -42,123 +58,29 @@ exports.getAmbulances = async (req, res) => {
 exports.updateAmbulanceStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    const { company_id } = req.admin;
+    const { company_id } = req.user;
 
     try {
-        const result = await db.query(
+        await db.query(
             'UPDATE ambulances SET status = $1 WHERE id = $2 AND company_id = $3',
             [status, id, company_id]
         );
         
-        if (result.rowCount === 0) {
+        const updatedRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [id]);
+        if (updatedRes.rowCount === 0) {
             return res.status(404).json({ error: 'Ambulance not found or unauthorized' });
         }
 
-        const updated = await db.query('SELECT * FROM ambulances WHERE id = $1', [id]);
+        const updated = updatedRes.rows[0];
         
-        // Notify admins about status change via socket
         const io = req.app.get('io');
-        io.to(`company_dashboard_${company_id}`).emit('ambulance_status_changed', updated.rows[0]);
-        io.to('super_dashboard').emit('ambulance_status_changed', updated.rows[0]);
-
-        res.json(updated.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-};
-
-exports.updateLocation = async (req, res) => {
-    const { id } = req.params;
-    const { lat, lng } = req.body;
-    const { company_id } = req.admin;
-
-    try {
-        const result = await db.query(
-            'UPDATE ambulances SET latitude = $1, longitude = $2 WHERE id = $3 AND company_id = $4',
-            [lat, lng, id, company_id]
-        );
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Ambulance not found or unauthorized' });
+        if (io) {
+            io.to(`company_dashboard_${company_id}`).emit('ambulance_status_changed', updated);
         }
 
-        // Broadcast to relevant rooms
-        const io = req.app.get('io');
-        io.to(`company_dashboard_${company_id}`).emit('ambulance_live_location', {
-            ambulanceId: id,
-            companyId: company_id,
-            lat,
-            lng,
-            timestamp: new Date()
-        });
-        io.to('super_dashboard').emit('ambulance_live_location', {
-            ambulanceId: id,
-            companyId: company_id,
-            lat,
-            lng,
-            timestamp: new Date()
-        });
-
-        res.json({ message: 'Location updated' });
+        res.json(updated);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
     }
 };
-
-exports.deleteAmbulance = async (req, res) => {
-    const { id } = req.params;
-    const { company_id } = req.admin;
-
-    try {
-        const result = await db.query(
-            'DELETE FROM ambulances WHERE id = $1 AND company_id = $2',
-            [id, company_id]
-        );
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Ambulance not found or unauthorized' });
-        }
-
-        res.json({ message: 'Ambulance deleted successfully' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-};
-
-exports.updateAmbulance = async (req, res) => {
-    const { id } = req.params;
-    const { ambulance_number, driver_name, driver_contact, status, lat, lng } = req.body;
-    const { company_id } = req.admin;
-
-    try {
-        const result = await db.query(
-            `UPDATE ambulances 
-             SET ambulance_number = COALESCE($1, ambulance_number),
-                 driver_name = COALESCE($2, driver_name),
-                 driver_contact = COALESCE($3, driver_contact),
-                 status = COALESCE($4, status),
-                 latitude = COALESCE($5, latitude),
-                 longitude = COALESCE($6, longitude)
-             WHERE id = $7 AND company_id = $8`,
-            [ambulance_number, driver_name, driver_contact, status, lat, lng, id, company_id]
-        );
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Ambulance not found or unauthorized' });
-        }
-
-        const updated = await db.query(
-            'SELECT id, ambulance_number, driver_name, driver_contact, status, latitude as lat, longitude as lng FROM ambulances WHERE id = $1',
-            [id]
-        );
-
-        res.json(updated.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-};
-

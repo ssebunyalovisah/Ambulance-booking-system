@@ -32,18 +32,18 @@ const BookingRequests = () => {
   };
 
   useEffect(() => {
-    if (admin?.company_id) {
+    if (admin?.company_id || admin?.role === 'super_admin' || admin?.role === 'SUPER_ADMIN') {
       adminSocket.connect({ 
         companyId: admin.company_id, 
-        isSuper: admin.role === 'SUPER_ADMIN' 
+        isSuper: admin.role === 'super_admin' || admin.role === 'SUPER_ADMIN'
       });
     }
     
     const fetchData = async () => {
       try {
         const [bookRes, ambRes] = await Promise.all([
-          api.get('/admin/bookings'),
-          api.get('/admin/ambulances'),
+          api.get('/bookings'),
+          api.get('/ambulances'),
         ]);
         setBookings(bookRes.data);
         setAvailableAmbulances(ambRes.data.filter(a => a.status === 'AVAILABLE'));
@@ -59,15 +59,17 @@ const BookingRequests = () => {
       setBookings(prev => [newBooking, ...prev]);
     });
 
-    adminSocket.onBookingStatusUpdate((updated) => {
+    const updateBookingStatus = (updated) => {
       setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b));
-    });
-  }, []);
+    };
+
+    adminSocket.onBookingStatusUpdate(updateBookingStatus);
+  }, [admin]);
 
   const updateStatus = async (id, status, ambulance_id = null) => {
     try {
-      await api.patch(`/admin/bookings/${id}/status`, { status, ambulance_id });
-      setBookings(prev => prev.map(b => b.id === id ? { ...b, status, ambulance_id: ambulance_id || b.ambulance_id } : b));
+      await api.patch(`/bookings/${id}/${status.toLowerCase()}`, { ambulance_id, driver_id: availableAmbulances.find(a => a.id === ambulance_id)?.driver_id });
+      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: status.toLowerCase(), ambulance_id: ambulance_id || b.ambulance_id } : b));
       setDispatchingId(null);
       showToast(`Booking ${status.toLowerCase()}`);
     } catch (err) {
@@ -178,10 +180,10 @@ const BookingRequests = () => {
                       <td className="px-6 py-4 hidden md:table-cell">
                         <div className="text-sm text-slate-600 flex items-start gap-2 group">
                           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-400 group-hover:text-orange-500 transition-colors" />
-                          <div className="flex flex-col">
+                        <div className="flex flex-col">
                             <span className="line-clamp-1">{booking.pickup_address}</span>
                             <button 
-                                onClick={() => setShowMap({ lat: booking.pickup_latitude || booking.lat, lng: booking.pickup_longitude || booking.lng, address: booking.pickup_address })}
+                                onClick={() => setShowMap({ lat: booking.patient_lat || booking.lat, lng: booking.patient_lng || booking.lng, address: booking.pickup_address })}
                                 className="text-[10px] font-bold text-orange-600 hover:text-orange-700 uppercase tracking-wider text-left transition-colors"
                             >
                                 View on Map
@@ -208,7 +210,7 @@ const BookingRequests = () => {
                           {booking.status === 'PENDING' && (
                             <>
                               <button
-                                onClick={() => updateStatus(booking.id, 'CANCELLED')}
+                                onClick={() => updateStatus(booking.id, 'CANCEL')}
                                 className="p-1.5 hover:bg-red-50 rounded-lg text-red-400 transition" title="Cancel"
                               >
                                 <X className="w-4 h-4" />
@@ -221,17 +223,17 @@ const BookingRequests = () => {
                               </button>
                             </>
                           )}
-                          {booking.status === 'ACCEPTED' && (
+                          {booking.status === 'accepted' && (
                             <button
-                              onClick={() => updateStatus(booking.id, 'DISPATCHED')}
+                              onClick={() => updateStatus(booking.id, 'DISPATCH')}
                               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition"
                             >
                               Mark Dispatched
                             </button>
                           )}
-                          {booking.status === 'DISPATCHED' && (
+                          {booking.status === 'dispatched' && (
                             <button
-                              onClick={() => updateStatus(booking.id, 'COMPLETED')}
+                              onClick={() => updateStatus(booking.id, 'COMPLETE')}
                               className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition"
                             >
                               Mark Complete
@@ -261,7 +263,7 @@ const BookingRequests = () => {
                                   >
                                     {availableAmbulances.map(amb => (
                                       <option key={amb.id} value={amb.id}>
-                                        {amb.ambulance_number} — {amb.driver_name}
+                                        🚑 {amb.company_name} | Driver: {amb.driver_name} | ID: {amb.driver_uid} | Unit: {amb.ambulance_number}
                                       </option>
                                     ))}
                                   </select>

@@ -28,30 +28,29 @@ const io = new Server(server, {
 // Import socket event handlers
 require('./sockets/index')(io);
 
-const publicAmbulanceRoutes = require('./routes/public_ambulances');
-const publicBookingRoutes = require('./routes/public_bookings');
-const authRoutes = require('./routes/auth');
-const ambulanceRoutes = require('./routes/ambulances');
-const adminBookingRoutes = require('./routes/admin_bookings');
-const feedbackRoutes = require('./routes/feedback');
-const paymentRoutes = require('./routes/payments');
-const reportRoutes = require('./routes/reports');
 const companyRoutes = require('./routes/companies');
+const ambulanceRoutes = require('./routes/ambulances');
+const driverRoutes = require('./routes/drivers');
+const bookingRoutes = require('./routes/bookings');
+const locationRoutes = require('./routes/location');
+const paymentRoutes = require('./routes/payments');
+const feedbackRoutes = require('./routes/feedback');
+const reportRoutes = require('./routes/reports');
+const authRoutes = require('./routes/auth');
 
 // Make io accessible to our router
 app.set('io', io);
 
 // Register routes
-app.use('/api/public/ambulances', publicAmbulanceRoutes);
-app.use('/api/public/bookings', publicBookingRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/admin/ambulances', ambulanceRoutes);
-app.use('/api/admin/bookings', adminBookingRoutes);
-app.use('/api/feedback', feedbackRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/ambulances', ambulanceRoutes);
+app.use('/api/drivers', driverRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/location', locationRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/payments', require('./routes/payment_routes'));
-app.use('/api/admin/reports', reportRoutes);
-app.use('/api/admin/companies', companyRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Root route for info
 app.get('/', (req, res) => {

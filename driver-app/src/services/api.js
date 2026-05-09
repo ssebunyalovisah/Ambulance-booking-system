@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -19,9 +19,9 @@ api.interceptors.request.use((config) => {
 });
 
 // Auth functions
-export const login = async (email, password) => {
+export const login = async (driver_id, driver_name) => {
     try {
-        const response = await api.post('/auth/login', { email, password });
+        const response = await api.post('/auth/login/driver', { driver_id, driver_name });
         return response.data;
     } catch (error) {
         console.error("Login failed", error);
@@ -29,9 +29,9 @@ export const login = async (email, password) => {
     }
 };
 
-export const refreshToken = async () => {
+export const refreshToken = async (token) => {
     try {
-        const response = await api.post('/auth/refresh');
+        const response = await api.post('/auth/refresh-token', { token });
         return response.data;
     } catch (error) {
         console.error("Token refresh failed", error);
@@ -42,7 +42,7 @@ export const refreshToken = async () => {
 // Booking functions for driver
 export const getDriverBookings = async () => {
     try {
-        const response = await api.get('/admin/bookings'); // Assuming driver can access their bookings
+        const response = await api.get('/bookings'); 
         return response.data;
     } catch (error) {
         console.error("Error fetching driver bookings", error);
@@ -50,35 +50,18 @@ export const getDriverBookings = async () => {
     }
 };
 
-export const acceptBooking = async (bookingId) => {
+export const updateBookingStatus = async (bookingId, status) => {
     try {
-        const response = await api.patch(`/admin/bookings/${bookingId}/accept`);
+        const response = await api.patch(`/bookings/${bookingId}/${status.toLowerCase()}`);
         return response.data;
     } catch (error) {
-        console.error("Error accepting booking", error);
+        console.error(`Error updating booking status to ${status}`, error);
         throw error;
     }
 };
 
-export const denyBooking = async (bookingId) => {
-    try {
-        const response = await api.patch(`/admin/bookings/${bookingId}/deny`);
-        return response.data;
-    } catch (error) {
-        console.error("Error denying booking", error);
-        throw error;
-    }
-};
-
-export const completeTrip = async (bookingId) => {
-    try {
-        const response = await api.patch(`/admin/bookings/${bookingId}/complete`);
-        return response.data;
-    } catch (error) {
-        console.error("Error completing trip", error);
-        throw error;
-    }
-};
+export const acceptBooking = (bookingId) => updateBookingStatus(bookingId, 'ACCEPT');
+export const denyBooking = (bookingId) => updateBookingStatus(bookingId, 'DENY');
 
 export const updateDriverLocation = async (location) => {
     try {
