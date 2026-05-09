@@ -11,6 +11,7 @@ const STATUS_COLORS = {
   PENDING: 'bg-orange-100 text-orange-600 border-orange-200',
   ACCEPTED: 'bg-blue-100 text-blue-600 border-blue-200',
   DISPATCHED: 'bg-indigo-100 text-indigo-600 border-indigo-200',
+  ARRIVED: 'bg-cyan-100 text-cyan-600 border-cyan-200',
   COMPLETED: 'bg-green-100 text-green-600 border-green-200',
   CANCELLED: 'bg-red-100 text-red-600 border-red-200',
 };
@@ -232,6 +233,14 @@ const BookingRequests = () => {
                             </button>
                           )}
                           {booking.status === 'dispatched' && (
+                            <button
+                              onClick={() => updateStatus(booking.id, 'ARRIVE')}
+                              className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-lg transition"
+                            >
+                              Mark Arrived
+                            </button>
+                          )}
+                          {booking.status === 'arrived' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'COMPLETE')}
                               className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition"

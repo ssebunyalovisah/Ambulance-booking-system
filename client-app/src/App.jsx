@@ -11,7 +11,7 @@ import TrackingPage from './pages/TrackingPage';
 import FeedbackModal from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
 import PaymentStatusPage from './pages/PaymentStatus';
-import { createBooking, getNearbyAmbulances, initiatePayment } from './services/api';
+import { createBooking, getNearbyAmbulances, initiatePayment, cancelBooking } from './services/api';
 import { socketService } from './services/socket';
 import { useBookingStore } from './store/useBookingStore';
 import { useLocationStore } from './store/useLocationStore';
@@ -181,7 +181,12 @@ function EmergencyApp() {
 
   // If there is an active booking, show the Tracking Page
   if (activeBookingId) {
-    return <TrackingPage onCancel={() => {
+    return <TrackingPage onCancel={async () => {
+        try {
+            await cancelBooking(activeBookingId);
+        } catch (e) {
+            console.error("Server cancel failed", e);
+        }
         clearBooking();
         navigate("/", { replace: true });
     }} />;

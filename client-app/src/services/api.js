@@ -61,4 +61,14 @@ export const getPaymentStatus = async (booking_id) => {
     }
 };
 
+export const cancelBooking = async (bookingId) => {
+    try {
+        const response = await api.patch(`/bookings/${bookingId}/cancel`);
+        return response.data;
+    } catch (error) {
+        console.error("Error cancelling booking", error);
+        throw error;
+    }
+};
+
 export default api;

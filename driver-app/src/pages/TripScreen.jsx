@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import socketService from '../services/socket.js';
-import { completeTrip, updateDriverLocation } from '../services/api.js';
+import { completeTrip, updateDriverLocation, updateBookingStatus } from '../services/api.js';
 import useTripStore from '../store/useTripStore.js';
 import useLocationStore from '../store/useLocationStore.js';
 import useDriverLocation from '../hooks/useDriverLocation.js';
@@ -33,8 +33,6 @@ const TripScreen = () => {
     const handleArrived = async () => {
         try {
             await socketService.emitDriverLocation({ ...currentLocation, bookingId: currentTrip.id }); // One last precise update
-            // We should have an updateBookingStatus in api.js
-            const { updateBookingStatus } = await import('../services/api.js');
             await updateBookingStatus(currentTrip.id, 'ARRIVED');
             setStatus('arrived');
             socketService.socket.emit('driver_arrived', { bookingId: currentTrip.id });

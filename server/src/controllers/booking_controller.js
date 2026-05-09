@@ -4,7 +4,21 @@ const crypto = require('crypto');
 const broadcastBookingUpdate = (req, bookingId, eventName, payload = {}) => {
     const io = req.app.get('io');
     if (io) {
+        // Emit to the specific booking room (for patient and driver)
         io.to(`room:booking_${bookingId}`).emit(eventName, payload);
+        
+        // Emit to the company dashboard (for admins)
+        if (payload.company_id) {
+            io.to(`company_dashboard_${payload.company_id}`).emit(eventName, payload);
+        }
+        
+        // Emit to super admin dashboard
+        io.to('super_dashboard').emit(eventName, payload);
+        
+        // Fallback: some updates might be global if company_id is missing
+        if (!payload.company_id) {
+            io.emit(eventName, payload);
+        }
     }
 };
 
@@ -85,8 +99,11 @@ exports.createBooking = async (req, res) => {
         // Notify admins and drivers via Socket.io
         const io = req.app.get('io');
         if (io) {
-            // Everyone joins the room from the client side using the ID
-            // Broadcast a new_booking event so admins and driver can see it
+            if (booking.company_id) {
+                io.to(`company_dashboard_${booking.company_id}`).emit('new_booking', booking);
+            }
+            io.to('super_dashboard').emit('new_booking', booking);
+            // Also global for driver app discovery
             io.emit('new_booking', booking);
         }
 
