@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ambulance-booking-system-4ytj.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001/api' : 'https://ambulance-booking-system-4ytj.onrender.com/api');
 
 const api = axios.create({
     baseURL: API_BASE_URL,
