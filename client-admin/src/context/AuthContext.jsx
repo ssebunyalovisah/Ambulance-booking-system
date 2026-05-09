@@ -151,7 +151,8 @@ export const AuthProvider = ({ children }) => {
         }
         
         if (user.role === 'driver') {
-            window.location.href = 'http://localhost:5175'; // Redirect to driver app in dev
+            const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || 'http://localhost:5175';
+            window.location.href = `${driverAppUrl}/?token=${accessToken}`;
         } else {
             setAdmin(user);
             return user;

@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Ambulance, Search, Trash2, Edit2, CheckCircle, XCircle, WifiOff, X, Loader2, Plus } from 'lucide-react';
 
-const STATUS_CYCLE = { 'AVAILABLE': 'BUSY', 'BUSY': 'OFFLINE', 'OFFLINE': 'AVAILABLE' };
+const STATUS_CYCLE = { 'available': 'busy', 'busy': 'offline', 'offline': 'available' };
 const STATUS_STYLES = {
-  AVAILABLE: 'bg-green-100 text-green-700 border-green-200',
-  BUSY: 'bg-red-100 text-red-700 border-red-200',
-  OFFLINE: 'bg-slate-100 text-slate-500 border-slate-200',
+  available: 'bg-green-100 text-green-700 border-green-200',
+  busy: 'bg-red-100 text-red-700 border-red-200',
+  offline: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
 const EMPTY_FORM = { ambulance_number: '', driver_id: '' };
@@ -112,18 +112,19 @@ const AmbulanceManagement = () => {
   );
 
   const StatusToggleButton = ({ amb }) => {
-    if (amb.status === 'AVAILABLE') return (
-      <button onClick={() => cycleStatus(amb.id, 'AVAILABLE')} className="p-2 rounded-lg hover:bg-red-50 text-red-500 transition" title="Mark as Busy">
+    const status = (amb.status || 'available').toLowerCase();
+    if (status === 'available') return (
+      <button onClick={() => cycleStatus(amb.id, 'available')} className="p-2 rounded-lg hover:bg-red-50 text-red-500 transition" title="Mark as Busy">
         <XCircle className="w-5 h-5" />
       </button>
     );
-    if (amb.status === 'BUSY') return (
-      <button onClick={() => cycleStatus(amb.id, 'BUSY')} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 transition" title="Mark as Offline">
+    if (status === 'busy') return (
+      <button onClick={() => cycleStatus(amb.id, 'busy')} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 transition" title="Mark as Offline">
         <WifiOff className="w-5 h-5" />
       </button>
     );
     return (
-      <button onClick={() => cycleStatus(amb.id, 'OFFLINE')} className="p-2 rounded-lg hover:bg-green-50 text-green-500 transition" title="Mark as Available">
+      <button onClick={() => cycleStatus(amb.id, 'offline')} className="p-2 rounded-lg hover:bg-green-50 text-green-500 transition" title="Mark as Available">
         <CheckCircle className="w-5 h-5" />
       </button>
     );
@@ -189,9 +190,9 @@ const AmbulanceManagement = () => {
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
-            { label: 'Available', count: ambulances.filter(a => a.status === 'AVAILABLE').length, color: 'text-green-600 bg-green-50 border-green-100' },
-            { label: 'On Mission', count: ambulances.filter(a => a.status === 'BUSY').length, color: 'text-red-600 bg-red-50 border-red-100' },
-            { label: 'Offline', count: ambulances.filter(a => a.status === 'OFFLINE').length, color: 'text-slate-500 bg-slate-50 border-slate-100' },
+            { label: 'Available', count: ambulances.filter(a => a.status?.toLowerCase() === 'available').length, color: 'text-green-600 bg-green-50 border-green-100' },
+            { label: 'On Mission', count: ambulances.filter(a => a.status?.toLowerCase() === 'busy').length, color: 'text-red-600 bg-red-50 border-red-100' },
+            { label: 'Offline', count: ambulances.filter(a => a.status?.toLowerCase() === 'offline').length, color: 'text-slate-500 bg-slate-50 border-slate-100' },
           ].map(s => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
               <div className="text-2xl font-black">{s.count}</div>

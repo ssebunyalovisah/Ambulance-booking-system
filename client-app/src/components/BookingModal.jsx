@@ -50,7 +50,7 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
                             </p>
                             <div className="mt-8 pt-8 border-t border-white/10">
                                 <p className="text-white font-semibold">Dispatching:</p>
-                                <p className="text-orange-400 font-bold text-xl uppercase tracking-wider">{ambulance?.companyName}</p>
+                                <p className="text-orange-400 font-bold text-xl uppercase tracking-wider">{ambulance?.company_name}</p>
                             </div>
                         </div>
                     </div>
@@ -64,7 +64,7 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
                             </div>
                                 <div className="leading-tight">
                                     <h3 className="text-lg font-outfit">Dispatch Request</h3>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit {ambulance?.plateNumber}</p>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit {ambulance?.ambulance_number}</p>
                                 </div>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-700 transition">
@@ -76,7 +76,7 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
                             {/* Mobile Banner replacing left image */}
                             <div className="md:hidden bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-2">
                                 <p className="text-sm text-slate-600 font-inter">
-                                    Dispatching <strong className="text-slate-800">{ambulance?.companyName}</strong>.
+                                    Dispatching <strong className="text-slate-800">{ambulance?.company_name}</strong>.
                                 </p>
                             </div>
 
@@ -137,31 +137,43 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
 
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-3 font-inter">Payment Method <span className="text-orange-500">*</span></label>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         <button
                                             type="button"
                                             disabled={isProcessing}
                                             onClick={() => setFormData({...formData, payment: 'momo'})}
-                                            className={`py-4 px-4 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold transition-all font-inter ${
+                                            className={`py-3 px-3 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold transition-all font-inter ${
                                                 formData.payment === 'momo' 
                                                 ? 'border-orange-600 bg-orange-50 text-orange-700 shadow-sm' 
                                                 : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'
                                             } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            <div className="w-6 h-6 bg-yellow-400 rounded-md flex items-center justify-center text-[10px] text-white font-black">MoMo</div>
-                                            Pay with Mobile Money
+                                            <div className="w-5 h-5 bg-yellow-400 rounded-md flex items-center justify-center text-[8px] text-white font-black">MoMo</div>
+                                            Mobile Money
                                         </button>
                                         <button
                                             type="button"
                                             disabled={isProcessing}
                                             onClick={() => setFormData({...formData, payment: 'card'})}
-                                            className={`py-4 px-4 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold transition-all font-inter ${
+                                            className={`py-3 px-3 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold transition-all font-inter ${
                                                 formData.payment === 'card' 
                                                 ? 'border-orange-600 bg-orange-50 text-orange-700 shadow-sm' 
                                                 : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'
                                             } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            <CreditCard className="w-5 h-5"/> Pay with Card
+                                            <CreditCard className="w-4 h-4"/> Card
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={isProcessing}
+                                            onClick={() => setFormData({...formData, payment: 'cash'})}
+                                            className={`py-3 px-3 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold transition-all font-inter ${
+                                                formData.payment === 'cash' 
+                                                ? 'border-orange-600 bg-orange-50 text-orange-700 shadow-sm' 
+                                                : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'
+                                            } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            💵 Cash
                                         </button>
                                     </div>
                                 </div>

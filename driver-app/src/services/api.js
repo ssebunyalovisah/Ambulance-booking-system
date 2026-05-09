@@ -62,6 +62,7 @@ export const updateBookingStatus = async (bookingId, status) => {
 
 export const acceptBooking = (bookingId) => updateBookingStatus(bookingId, 'ACCEPT');
 export const denyBooking = (bookingId) => updateBookingStatus(bookingId, 'DENY');
+export const completeTrip = (bookingId) => updateBookingStatus(bookingId, 'COMPLETE');
 
 export const updateDriverLocation = async (location) => {
     try {

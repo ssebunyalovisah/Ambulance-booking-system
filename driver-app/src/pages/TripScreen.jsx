@@ -32,8 +32,12 @@ const TripScreen = () => {
 
     const handleArrived = async () => {
         try {
-            await api.patch(`/bookings/${currentTrip.id}/arrive`);
+            await socketService.emitDriverLocation({ ...currentLocation, bookingId: currentTrip.id }); // One last precise update
+            // We should have an updateBookingStatus in api.js
+            const { updateBookingStatus } = await import('../services/api.js');
+            await updateBookingStatus(currentTrip.id, 'ARRIVED');
             setStatus('arrived');
+            socketService.socket.emit('driver_arrived', { bookingId: currentTrip.id });
         } catch (error) {
             console.error('Arrived update failed', error);
         }
@@ -42,6 +46,7 @@ const TripScreen = () => {
     const handleComplete = async () => {
         try {
             await completeTrip(currentTrip.id);
+            socketService.emitTripCompleted(currentTrip.id);
             navigate('/history');
         } catch (error) {
             console.error('Complete failed', error);

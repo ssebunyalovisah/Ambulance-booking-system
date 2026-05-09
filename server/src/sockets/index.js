@@ -50,6 +50,37 @@ module.exports = (io) => {
       io.to('super_dashboard').emit('patient_location_update', data);
     });
 
+    // Driver workflow events
+    socket.on('driver_accepted', (data) => {
+      // data: { bookingId, driverId, ambulanceId, companyId }
+      if (data.bookingId) {
+        io.to(`room:booking_${data.bookingId}`).emit('driver_accepted', data);
+      }
+      if (data.companyId) {
+        io.to(`company_dashboard_${data.companyId}`).emit('driver_accepted', data);
+      }
+      io.to('super_dashboard').emit('driver_accepted', data);
+    });
+
+    socket.on('driver_denied', (data) => {
+      // data: { bookingId, driverId, companyId, reason }
+      if (data.companyId) {
+        io.to(`company_dashboard_${data.companyId}`).emit('driver_denied', data);
+      }
+      io.to('super_dashboard').emit('driver_denied', data);
+    });
+
+    socket.on('trip_completed', (data) => {
+      // data: { bookingId, driverId, companyId }
+      if (data.bookingId) {
+        io.to(`room:booking_${data.bookingId}`).emit('trip_completed', data);
+      }
+      if (data.companyId) {
+        io.to(`company_dashboard_${data.companyId}`).emit('trip_completed', data);
+      }
+      io.to('super_dashboard').emit('trip_completed', data);
+    });
+
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
     });

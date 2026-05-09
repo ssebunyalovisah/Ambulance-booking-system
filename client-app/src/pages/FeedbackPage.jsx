@@ -91,8 +91,8 @@ export default function FeedbackModal({ bookingId, ambulance, isOpen, onReturnHo
                                         <img src={ambulanceDay} alt="Ambulance" className="w-full h-full object-cover" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-slate-800 font-inter">{ambulance?.companyName || 'Rescue Force'}</h3>
-                                        <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Unit {ambulance?.plateNumber || 'NY-112'}</p>
+                                        <h3 className="font-bold text-slate-800 font-inter">{ambulance?.company_name || 'Rescue Force'}</h3>
+                                        <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Unit {ambulance?.ambulance_number || 'NY-112'}</p>
                                     </div>
                                 </div>
 

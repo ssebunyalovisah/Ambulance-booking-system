@@ -71,7 +71,15 @@ exports.createBooking = async (req, res) => {
             [id, patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id || null, driver_id || null]
         );
 
-        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        const bookingRes = await db.query(
+            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
+             FROM bookings b
+             LEFT JOIN companies c ON b.company_id = c.id
+             LEFT JOIN drivers d ON b.driver_id = d.id
+             LEFT JOIN ambulances a ON b.ambulance_id = a.id
+             WHERE b.id = $1`, 
+            [id]
+        );
         const booking = bookingRes.rows[0];
 
         // Notify admins and drivers via Socket.io
@@ -93,22 +101,31 @@ const changeStatus = async (id, status, res, req, eventName) => {
     const { ambulance_id, driver_id } = req.body;
     try {
         let queryStr = 'UPDATE bookings SET status = $1, updated_at = CURRENT_TIMESTAMP';
-        let params = [status, id];
+        let params = [status];
         
         if (ambulance_id) {
-            queryStr += ', ambulance_id = $' + (params.length + 1);
+            queryStr += `, ambulance_id = $${params.length + 1}`;
             params.push(ambulance_id);
         }
         if (driver_id) {
-            queryStr += ', driver_id = $' + (params.length + 1);
+            queryStr += `, driver_id = $${params.length + 1}`;
             params.push(driver_id);
         }
         
-        queryStr += ' WHERE id = $2';
+        params.push(id);
+        queryStr += ` WHERE id = $${params.length}`;
         
         await db.query(queryStr, params);
         
-        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        const bookingRes = await db.query(
+            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, d.phone as driver_phone, a.ambulance_number 
+             FROM bookings b
+             LEFT JOIN companies c ON b.company_id = c.id
+             LEFT JOIN drivers d ON b.driver_id = d.id
+             LEFT JOIN ambulances a ON b.ambulance_id = a.id
+             WHERE b.id = $1`, 
+            [id]
+        );
         if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
         
         const booking = bookingRes.rows[0];
@@ -125,6 +142,15 @@ const changeStatus = async (id, status, res, req, eventName) => {
         if (eventName) {
             broadcastBookingUpdate(req, id, eventName, booking);
         }
+
+        // Also broadcast globally if it's a new assignment so the driver app sees it
+        if (status === 'accepted') {
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('new_booking', booking);
+            }
+        }
+
         res.json(booking);
     } catch (err) {
         console.error(err);
@@ -138,7 +164,15 @@ exports.assignBooking = async (req, res) => {
     try {
         await db.query('UPDATE bookings SET ambulance_id = $1, driver_id = $2 WHERE id = $3', [ambulance_id, driver_id, id]);
         
-        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        const bookingRes = await db.query(
+            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
+             FROM bookings b
+             LEFT JOIN companies c ON b.company_id = c.id
+             LEFT JOIN drivers d ON b.driver_id = d.id
+             LEFT JOIN ambulances a ON b.ambulance_id = a.id
+             WHERE b.id = $1`, 
+            [id]
+        );
         if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
         
         const booking = bookingRes.rows[0];

@@ -6,14 +6,14 @@ exports.registerAmbulance = async (req, res) => {
 
     try {
         const insertRes = await db.query(
-            'INSERT INTO ambulances (company_id, ambulance_number, driver_id, gps_capable, status) VALUES ($1, $2, $3, $4, $5)',
+            'INSERT INTO ambulances (company_id, ambulance_number, driver_id, gps_capable, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [company_id, ambulance_number, driver_id || null, gps_capable !== undefined ? gps_capable : true, 'available']
         );
         
-        const newAmbulanceRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [insertRes.lastID]);
+        const newId = insertRes.rows && insertRes.rows.length > 0 ? insertRes.rows[0].id : insertRes.lastID;
+        const newAmbulanceRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [newId]);
         const newAmbulance = newAmbulanceRes.rows[0];
         
-        // Update driver's ambulance_id if assigned
         if (driver_id) {
             await db.query('UPDATE drivers SET ambulance_id = $1 WHERE id = $2', [newAmbulance.id, driver_id]);
         }
@@ -55,6 +55,38 @@ exports.getAmbulances = async (req, res) => {
     }
 };
 
+exports.updateAmbulance = async (req, res) => {
+    const { id } = req.params;
+    const { ambulance_number, driver_id, gps_capable } = req.body;
+    const { company_id } = req.user;
+
+    try {
+        await db.query(
+            `UPDATE ambulances 
+             SET ambulance_number = COALESCE($1, ambulance_number),
+                 driver_id = COALESCE($2, driver_id),
+                 gps_capable = COALESCE($3, gps_capable)
+             WHERE id = $4 AND company_id = $5`,
+            [ambulance_number, driver_id, gps_capable, id, company_id]
+        );
+
+        // Update driver's ambulance_id if changed
+        if (driver_id !== undefined) {
+             // remove previous driver from this ambulance link
+             await db.query('UPDATE drivers SET ambulance_id = NULL WHERE ambulance_id = $1', [id]);
+             if (driver_id !== null) {
+                 await db.query('UPDATE drivers SET ambulance_id = $1 WHERE id = $2', [id, driver_id]);
+             }
+        }
+
+        const updatedRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [id]);
+        res.json(updatedRes.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
 exports.updateAmbulanceStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -79,6 +111,18 @@ exports.updateAmbulanceStatus = async (req, res) => {
         }
 
         res.json(updated);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.deleteAmbulance = async (req, res) => {
+    const { id } = req.params;
+    const { company_id } = req.user;
+    try {
+        await db.query('DELETE FROM ambulances WHERE id = $1 AND company_id = $2', [id, company_id]);
+        res.json({ message: 'Ambulance deleted' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });

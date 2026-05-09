@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:5001' : 'https://ambulance-booking-system-4ytj.onrender.com');
 
 class SocketService {
     constructor() {
@@ -44,6 +44,12 @@ class SocketService {
         }
     }
 
+    onPatientLocation(callback) {
+        if (this.socket) {
+            this.socket.on('patient_location_update', callback);
+        }
+    }
+
     emitDriverLocation(data) {
         if (this.socket && this.socket.connected) {
             this.socket.emit('driver_location_update', data);
@@ -59,6 +65,12 @@ class SocketService {
     emitDenyBooking(bookingId) {
         if (this.socket) {
             this.socket.emit('driver_denied', { bookingId });
+        }
+    }
+
+    emitTripCompleted(bookingId) {
+        if (this.socket) {
+            this.socket.emit('trip_completed', { bookingId });
         }
     }
 

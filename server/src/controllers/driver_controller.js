@@ -28,11 +28,12 @@ exports.createDriver = async (req, res) => {
 
     try {
         const insertRes = await db.query(
-            'INSERT INTO drivers (company_id, full_name, driver_id, phone, ambulance_id, status) VALUES ($1, $2, $3, $4, $5, $6)',
+            'INSERT INTO drivers (company_id, full_name, driver_id, phone, ambulance_id, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
             [company_id, full_name, driver_id, phone, ambulance_id || null, 'available']
         );
         
-        const newDriverRes = await db.query('SELECT * FROM drivers WHERE id = $1', [insertRes.lastID]);
+        const newDriverId = insertRes.rows && insertRes.rows.length > 0 ? insertRes.rows[0].id : insertRes.lastID;
+        const newDriverRes = await db.query('SELECT * FROM drivers WHERE id = $1', [newDriverId]);
         const newDriver = newDriverRes.rows[0];
         
         if (ambulance_id) {

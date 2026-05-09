@@ -46,7 +46,7 @@ const BookingRequests = () => {
           api.get('/ambulances'),
         ]);
         setBookings(bookRes.data);
-        setAvailableAmbulances(ambRes.data.filter(a => a.status === 'AVAILABLE'));
+        setAvailableAmbulances(ambRes.data.filter(a => a.status.toLowerCase() === 'available'));
       } catch (err) {
         console.error(err);
       } finally {

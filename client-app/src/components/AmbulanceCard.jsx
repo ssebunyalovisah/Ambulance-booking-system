@@ -25,11 +25,11 @@ export default function AmbulanceCard({ ambulance, onRequest, onClose }) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent flex flex-col justify-end p-5">
                     <h3 className="font-bold text-2xl text-white flex items-center gap-2 drop-shadow-md">
-                        {ambulance.companyName}
+                        {ambulance.company_name}
                         <ShieldAlert className="w-5 h-5 text-orange-500 fill-orange-500/20" />
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
-                        <p className="text-white/80 text-sm font-medium tracking-wide">UNIT: {ambulance.plateNumber}</p>
+                        <p className="text-white/80 text-sm font-medium tracking-wide">UNIT: {ambulance.ambulance_number} | DRIVER: {ambulance.driver_name || 'N/A'}</p>
                         <div className="flex items-center gap-1 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white border border-white/20">
                             <Star className="w-3 h-3 fill-orange-400 text-orange-400" />
                             {ambulance.rating || '4.8'} ({ambulance.reviews || '12'})

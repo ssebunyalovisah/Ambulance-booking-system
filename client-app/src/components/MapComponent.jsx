@@ -93,7 +93,7 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation, l
 
             {ambulances.map((amb) => (
                 <Marker 
-                    key={amb.id}
+                    key={amb.ambulance_id}
                     position={{ lat: amb.lat, lng: amb.lng }}
                     icon={ambulanceIcon}
                     eventHandlers={{

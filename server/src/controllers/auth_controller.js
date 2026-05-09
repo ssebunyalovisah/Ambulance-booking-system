@@ -41,19 +41,19 @@ exports.signup = async (req, res) => {
         const normalizedRole = (role || 'admin').toLowerCase();
 
         const companyResult = await db.query(
-            'INSERT INTO companies (name, email) VALUES ($1, $2)',
+            'INSERT INTO companies (name, email) VALUES ($1, $2) RETURNING id',
             [companyName, email]
         );
-        const companyId = companyResult.lastID;
+        const companyId = companyResult.rows[0].id;
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
         const adminResult = await db.query(
-            'INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+            'INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [companyId, name, email, passwordHash, normalizedRole]
         );
-        const adminId = adminResult.lastID;
+        const adminId = adminResult.rows[0].id;
 
         res.status(201).json({
             message: 'Company and Admin registered successfully',

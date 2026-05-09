@@ -116,6 +116,10 @@ function EmergencyApp() {
                 completeTrip();
            } else {
                 setActiveBooking(activeBookingId, data.status);
+                // Sync ambulance/driver details if they were just assigned/updated
+                if (data.company_name) {
+                    setSelectedAmbulance(data);
+                }
            }
        });
 
@@ -141,10 +145,13 @@ function EmergencyApp() {
   const handleBookingSubmit = async (formData) => {
     try {
         const payload = {
-            ...formData,
-            lat: userLocation.lat,
-            lng: userLocation.lng,
-            ambulance_id: selectedAmbulance?.id,
+            patient_name: formData.name,
+            phone: formData.phone,
+            emergency_description: formData.description,
+            payment_method: formData.payment,
+            patient_lat: userLocation.lat,
+            patient_lng: userLocation.lng,
+            ambulance_id: selectedAmbulance?.ambulance_id,
             company_id: selectedAmbulance?.company_id
         };
         const response = await createBooking(payload);

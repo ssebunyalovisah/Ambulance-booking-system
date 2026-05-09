@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/api.js';
 
@@ -8,6 +8,16 @@ const Login = () => {
     const [error, setError] = useState('');
     const navigate = useNavigate();
  
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            localStorage.setItem('accessToken', token);
+            localStorage.setItem('role', 'driver');
+            navigate('/requests');
+        }
+    }, [navigate]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {

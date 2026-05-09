@@ -25,12 +25,16 @@ export default function AvailableUnitsList({ ambulances, onSelect }) {
                         {hasAmbulances ? (
                             ambulances.map(amb => (
                                 <button 
-                                    key={amb.id}
+                                    key={amb.ambulance_id}
                                     onClick={() => onSelect(amb)}
                                     className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border-2 border-transparent hover:border-blue-100 active:border-blue-500 rounded-2xl transition-all text-left shadow-sm hover:shadow-md group"
                                 >
                                     <div>
-                                        <p className="font-bold text-slate-900 text-lg group-hover:text-blue-700 transition-colors">{amb.companyName || 'Rescue Unit'}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-slate-900 text-lg group-hover:text-blue-700 transition-colors">{amb.company_name || 'Rescue Unit'}</p>
+                                            <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono font-bold">{amb.ambulance_number}</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider -mt-1">{amb.driver_name || 'Awaiting Driver'}</p>
                                         <div className="flex gap-2 mt-2">
                                             <span className="text-[10px] sm:text-xs bg-red-100 text-red-700 font-bold px-2 py-1 rounded-md flex items-center gap-1.5 uppercase tracking-wide">
                                                 <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>

@@ -85,3 +85,12 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Feedback Table
+CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id TEXT REFERENCES bookings(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL,
+    comments TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
