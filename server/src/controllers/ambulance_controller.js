@@ -18,10 +18,15 @@ exports.registerAmbulance = async (req, res) => {
             await db.query('UPDATE drivers SET ambulance_id = $1 WHERE id = $2', [newAmbulance.id, driver_id]);
         }
 
-        res.status(201).json(newAmbulance);
+        const updatedRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [newId]);
+        res.status(201).json(updatedRes.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
+        console.error('[DATABASE ERROR] registerAmbulance failed:', {
+            message: err.message,
+            query: 'INSERT INTO ambulances...',
+            stack: err.stack
+        });
+        res.status(500).json({ error: 'Database error creating ambulance', details: err.message });
     }
 };
 
