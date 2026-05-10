@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const helmet = require('helmet');
 const compression = require('compression');
+const cors = require('cors');
 const db = require('./config/db');
 
 const app = express();
