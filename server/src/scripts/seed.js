@@ -124,9 +124,15 @@ const seed = async () => {
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_lng') THEN
                         ALTER TABLE bookings ADD COLUMN patient_lng DOUBLE PRECISION;
                     END IF;
+                    -- 5. Reset Sequences (Crucial for Postgres after seeding/migration)
+                    -- This ensures auto-increment IDs don't collide with existing data
+                    PERFORM setval('ambulances_id_seq', (SELECT MAX(id) FROM ambulances));
+                    PERFORM setval('drivers_id_seq', (SELECT MAX(id) FROM drivers));
+                    PERFORM setval('companies_id_seq', (SELECT MAX(id) FROM companies));
+                    PERFORM setval('users_id_seq', (SELECT MAX(id) FROM users));
                 END $$;
             `);
-            console.log('Schema synchronized.');
+            console.log('Schema synchronized and sequences reset.');
         } catch (migErr) {
             console.warn('Migration warning (might be SQLite or permissions):', migErr.message);
         }
