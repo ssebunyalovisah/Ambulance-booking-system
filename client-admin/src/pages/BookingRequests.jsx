@@ -5,7 +5,7 @@ import { Clock, Phone, MapPin, Activity, AlertCircle, Ambulance, ChevronDown, X,
 import { adminSocket } from '../services/socket';
 import LocationModal from '../components/LocationModal';
 
-const STATUS_TABS = ['ALL', 'PENDING', 'ACCEPTED', 'DISPATCHED', 'ARRIVED', 'COMPLETED', 'CANCELLED'];
+const STATUS_TABS = ['ALL', 'PENDING', 'ACCEPTED', 'DISPATCHED', 'ARRIVED', 'COMPLETED', 'CANCELLED', 'DENIED'];
 
 const STATUS_COLORS = {
   PENDING: 'bg-orange-100 text-orange-600 border-orange-200',
@@ -14,6 +14,7 @@ const STATUS_COLORS = {
   ARRIVED: 'bg-cyan-100 text-cyan-600 border-cyan-200',
   COMPLETED: 'bg-green-100 text-green-600 border-green-200',
   CANCELLED: 'bg-red-100 text-red-600 border-red-200',
+  DENIED: 'bg-rose-100 text-rose-600 border-rose-200',
 };
 
 const BookingRequests = () => {
@@ -56,13 +57,17 @@ const BookingRequests = () => {
     };
     fetchData();
 
+    // v3 spec: Re-fetch full booking list on socket reconnect to catch missed status changes
+    const sock = adminSocket.socket;
+    const onReconnect = () => fetchData();
+    if (sock) sock.on('connect', onReconnect);
+
     const onNewBooking = (newBooking) => {
       setBookings(prev => {
         if (prev.some(b => b.id === newBooking.id)) return prev;
         return [newBooking, ...prev];
       });
     };
-
     adminSocket.onNewBooking(onNewBooking);
 
     const updateBookingStatus = (updated) => {
@@ -72,20 +77,34 @@ const BookingRequests = () => {
       setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b));
       fetchAmbulances();
     };
-
     adminSocket.onBookingStatusUpdate(updateBookingStatus);
 
-    const onAmbUpdate = () => {
-        fetchAmbulances();
+    // v3 spec: Show cancellation toast with full context (who cancelled + reason)
+    const onBookingCancelled = (data) => {
+      const cancelledBy = data.cancelled_by
+        ? data.cancelled_by.charAt(0).toUpperCase() + data.cancelled_by.slice(1)
+        : 'Unknown';
+      const reason = data.cancel_reason || 'No reason provided';
+      showToast(
+        `🔴 Booking #${String(data.id).slice(0, 8)}… cancelled by ${cancelledBy} — "${reason}"`,
+        'error'
+      );
+      // Also patch the row in-place
+      setBookings(prev => prev.map(b => b.id === data.id ? { ...b, ...data } : b));
     };
+    if (sock) sock.on('booking_cancelled', onBookingCancelled);
+
+    const onAmbUpdate = () => fetchAmbulances();
     adminSocket.onAmbulanceStatusUpdate(onAmbUpdate);
 
-    const onDrvUpdate = () => {
-        fetchAmbulances();
-    };
+    const onDrvUpdate = () => fetchAmbulances();
     adminSocket.onDriverStatusUpdate(onDrvUpdate);
 
     return () => {
+      if (sock) {
+        sock.off('connect', onReconnect);
+        sock.off('booking_cancelled', onBookingCancelled);
+      }
       adminSocket.offNewBooking(onNewBooking);
       adminSocket.offBookingStatusUpdate(updateBookingStatus);
       adminSocket.offAmbulanceStatusUpdate(onAmbUpdate);
@@ -104,7 +123,16 @@ const BookingRequests = () => {
 
   const updateStatus = async (id, status, ambulance_id = null) => {
     try {
-      await api.patch(`/bookings/${id}/${status.toLowerCase()}`, { ambulance_id, driver_id: availableAmbulances.find(a => a.id === ambulance_id)?.driver_id });
+      const body = { 
+        ambulance_id, 
+        driver_id: availableAmbulances.find(a => a.id === ambulance_id)?.driver_id
+      };
+      // v3 spec: admin cancellations must record cancelled_by: 'admin'
+      if (status === 'CANCEL') {
+        body.cancelled_by = 'admin';
+        body.reason = 'Cancelled by dispatch operator';
+      }
+      await api.patch(`/bookings/${id}/${status.toLowerCase()}`, body);
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: status.toLowerCase(), ambulance_id: ambulance_id || b.ambulance_id } : b));
       setDispatchingId(null);
       showToast(`Booking ${status.toLowerCase()}`);
@@ -132,6 +160,7 @@ const BookingRequests = () => {
     ARRIVED: bookings.filter(b => b.status?.toUpperCase() === 'ARRIVED').length,
     COMPLETED: bookings.filter(b => b.status?.toUpperCase() === 'COMPLETED').length,
     CANCELLED: bookings.filter(b => b.status?.toUpperCase() === 'CANCELLED').length,
+    DENIED: bookings.filter(b => b.status?.toUpperCase() === 'DENIED').length,
   };
 
   return (
@@ -147,15 +176,15 @@ const BookingRequests = () => {
       )}
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Emergency Requests</h1>
-        <p className="text-slate-500 mt-1">Manage and dispatch all emergency booking requests.</p>
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Live Bookings Monitor</h1>
+        <p className="text-slate-500 mt-1">Watching dispatch operations in real-time. Admins monitor while drivers handle requests.</p>
       </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Pending', count: counts.PENDING, color: 'text-orange-600 bg-orange-50 border-orange-100' },
-          { label: 'Active', count: counts.ACCEPTED + counts.DISPATCHED + counts.ARRIVED, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+          { label: 'In Mission', count: counts.ACCEPTED + counts.DISPATCHED + counts.ARRIVED, color: 'text-blue-600 bg-blue-50 border-blue-100' },
           { label: 'Completed', count: counts.COMPLETED, color: 'text-green-600 bg-green-50 border-green-100' },
           { label: 'Total', count: counts.ALL, color: 'text-slate-600 bg-slate-50 border-slate-100' },
         ].map(s => (
@@ -199,7 +228,7 @@ const BookingRequests = () => {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Emergency</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Assigned Unit</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Location</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Time</th>
@@ -213,21 +242,26 @@ const BookingRequests = () => {
                       <td className="px-6 py-4">
                         <div className="font-medium text-slate-900">{booking.patient_name}</div>
                         <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3" /> {booking.phone_number}
+                          <Phone className="w-3 h-3" /> {booking.phone}
                         </div>
                       </td>
-                      <td className="px-6 py-4 max-w-xs">
-                        <div className="text-sm text-slate-700 line-clamp-2">
-                          {booking.emergency_description || 'No description provided'}
-                        </div>
+                      <td className="px-6 py-4">
+                        {booking.driver_name ? (
+                            <div className="flex flex-col">
+                                <div className="text-sm font-bold text-slate-800">{booking.driver_name}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Unit: {booking.ambulance_number} | {booking.driver_uid}</div>
+                            </div>
+                        ) : (
+                            <span className="text-xs text-slate-400 italic">No unit assigned</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
                         <div className="text-sm text-slate-600 flex items-start gap-2 group">
                           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-400 group-hover:text-orange-500 transition-colors" />
                         <div className="flex flex-col">
-                            <span className="line-clamp-1">{booking.pickup_address}</span>
+                            <span className="line-clamp-1">{booking.pickup_address || 'Current GPS'}</span>
                             <button 
-                                onClick={() => setShowMap({ lat: booking.patient_lat || booking.lat, lng: booking.patient_lng || booking.lng, address: booking.pickup_address })}
+                                onClick={() => setShowMap({ lat: booking.patient_lat, lng: booking.patient_lng, address: booking.pickup_address })}
                                 className="text-[10px] font-bold text-orange-600 hover:text-orange-700 uppercase tracking-wider text-left transition-colors"
                             >
                                 View on Map
@@ -235,37 +269,46 @@ const BookingRequests = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[booking.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
-                          {booking.status?.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {new Date(booking.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <div className="text-[10px] uppercase mt-0.5">
-                          {new Date(booking.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
+      <td className="px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-bold border w-fit ${STATUS_COLORS[booking.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
+            {booking.status?.toUpperCase()}
+          </span>
+          {(booking.status === 'cancelled' || booking.status === 'denied') && (
+            <span className="text-[10px] text-red-500 font-bold italic leading-tight">
+              By: {booking.cancelled_by || 'Unknown'} <br/>
+              {booking.cancel_reason || booking.reason || 'No reason provided'}
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
+        <div className="flex items-center gap-1">
+          <Clock className="w-3.5 h-3.5" />
+          {new Date(booking.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           {booking.status?.toUpperCase() === 'PENDING' && (
-                            <>
-                              <button
-                                onClick={() => updateStatus(booking.id, 'CANCEL')}
-                                className="p-1.5 hover:bg-red-50 rounded-lg text-red-400 transition" title="Cancel"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDispatch(booking.id)}
-                                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1"
-                              >
-                                <Ambulance className="w-3.5 h-3.5" /> Dispatch
-                              </button>
-                            </>
+                            <div className="flex flex-col items-end gap-1">
+                                {!booking.driver_id ? (
+                                    <button
+                                        onClick={() => handleDispatch(booking.id)}
+                                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 w-full justify-center"
+                                    >
+                                        <Ambulance className="w-3.5 h-3.5" /> Manual Dispatch
+                                    </button>
+                                ) : (
+                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest animate-pulse">Waiting for Driver...</span>
+                                )}
+                                <button
+                                    onClick={() => updateStatus(booking.id, 'CANCEL')}
+                                    className="text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest mt-1"
+                                >
+                                    Cancel Request
+                                </button>
+                            </div>
                           )}
                           {booking.status?.toUpperCase() === 'ACCEPTED' && (
                             <button

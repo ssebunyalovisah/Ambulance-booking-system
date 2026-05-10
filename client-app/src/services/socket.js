@@ -5,6 +5,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_U
 class SocketService {
     constructor() {
         this.socket = null;
+        this._activeBookingId = null; // Tracks active booking room for reconnect rejoin
     }
 
     connect() {
@@ -17,21 +18,42 @@ class SocketService {
             });
 
             this.socket.on('connect', () => {
-                console.log('Socket connected:', this.socket.id);
+                console.log('[Client Socket] Connected:', this.socket.id);
+                // v3 spec: Re-join booking room on every reconnect so no updates are missed
+                if (this._activeBookingId) {
+                    this.socket.emit('join_booking', this._activeBookingId);
+                    console.log('[Client Socket] Rejoined booking room:', this._activeBookingId);
+                }
+            });
+
+            this.socket.on('disconnect', () => {
+                console.log('[Client Socket] Disconnected');
             });
         }
         return this.socket;
     }
 
     joinBookingRoom(bookingId) {
+        // Keep track so we can rejoin on reconnect
+        this._activeBookingId = bookingId;
         if (this.socket) {
             this.socket.emit('join_booking', bookingId);
         }
     }
 
+    leaveBookingRoom() {
+        this._activeBookingId = null;
+    }
+
     onDriverLocation(callback) {
         if (this.socket) {
             this.socket.on('driver_location_update', callback);
+        }
+    }
+
+    offDriverLocation(callback) {
+        if (this.socket) {
+            this.socket.off('driver_location_update', callback);
         }
     }
 
@@ -47,10 +69,23 @@ class SocketService {
                 'driver_denied',
                 'booking_status_update'
             ];
-            
-            events.forEach(evt => {
-                this.socket.on(evt, callback);
-            });
+            events.forEach(evt => this.socket.on(evt, callback));
+        }
+    }
+
+    offBookingUpdate(callback) {
+        if (this.socket) {
+            const events = [
+                'booking_assigned',
+                'booking_accepted',
+                'ambulance_dispatched',
+                'driver_arrived',
+                'trip_completed',
+                'booking_cancelled',
+                'driver_denied',
+                'booking_status_update'
+            ];
+            events.forEach(evt => this.socket.off(evt, callback));
         }
     }
 
@@ -68,10 +103,10 @@ class SocketService {
 
     emitPatientLocation(bookingId, location) {
         if (this.socket && this.socket.connected) {
-            this.socket.emit('patient_location_update', { 
-                bookingId, 
-                lat: location.lat, 
-                lng: location.lng 
+            this.socket.emit('patient_location_update', {
+                bookingId,
+                lat: location.lat,
+                lng: location.lng
             });
         }
     }

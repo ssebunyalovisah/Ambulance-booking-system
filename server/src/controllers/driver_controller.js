@@ -142,11 +142,19 @@ exports.updateSelfStatus = async (req, res) => {
         // Broadcast to dashboards so admins see the refresh
         const io = req.app.get('io');
         if (io) {
-            const eventPayload = { type: 'driver_update', driver_id: id, status };
+            const eventPayload = { 
+                type: 'driver_update', 
+                driver_id: id, 
+                status,
+                company_id 
+            };
+            // driver_status_changed for legacy listeners
             io.to(`company_dashboard_${company_id}`).emit('driver_status_changed', eventPayload);
             io.to('super_dashboard').emit('driver_status_changed', eventPayload);
-            // Also send as a general update
-            io.to(`company_dashboard_${company_id}`).emit('booking_status_update', eventPayload);
+            // driver_status_update — canonical v3 spec event for KPI counters & fleet map
+            io.to(`company_dashboard_${company_id}`).emit('driver_status_update', eventPayload);
+            io.to('super_dashboard').emit('driver_status_update', eventPayload);
+            io.to('admin_monitor').emit('driver_status_update', eventPayload);
         }
 
         res.json({ success: true, status });

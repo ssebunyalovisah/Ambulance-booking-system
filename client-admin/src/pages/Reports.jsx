@@ -46,7 +46,7 @@ export default function Reports() {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/admin/reports', {
+      const response = await api.get('/reports', {
         params: { ...filters, reportType }
       });
       setData(response.data);

@@ -12,7 +12,8 @@ import {
   Radio,
   BarChart3,
   Building2,
-  User
+  User,
+  Users
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -20,9 +21,10 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Overview', path: '/' },
-        { icon: Bell, label: 'Incoming Requests', path: '/requests' },
+        { icon: Bell, label: 'Live Bookings Monitor', path: '/requests' },
         { icon: Ambulance, label: 'Fleet Management', path: '/ambulances' },
         { icon: User, label: 'Driver Personnel', path: '/drivers' },
+        { icon: Users, label: 'Patient Records', path: '/patients' },
         { icon: Radio, label: 'Live Tracking', path: '/tracking' },
         { icon: CreditCard, label: 'Payments', path: '/payments' },
         { icon: MessageSquare, label: 'Feedback & Ratings', path: '/feedback' },

@@ -15,6 +15,7 @@ import PaymentManagement from './pages/PaymentManagement';
 import FeedbackManagement from './pages/FeedbackManagement';
 import Reports from './pages/Reports';
 import CompanyManagement from './pages/CompanyManagement';
+import PatientRecords from './pages/PatientRecords';
 import { AuthProvider } from './context/AuthContext';
 
 function Layout({ children }) {
@@ -128,6 +129,14 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <CompanyManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/patients" element={
+            <ProtectedRoute>
+              <Layout>
+                <PatientRecords />
               </Layout>
             </ProtectedRoute>
           } />

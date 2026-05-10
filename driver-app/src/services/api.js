@@ -61,8 +61,56 @@ export const updateBookingStatus = async (bookingId, status) => {
 };
 
 export const acceptBooking = (bookingId) => updateBookingStatus(bookingId, 'ACCEPT');
-export const denyBooking = (bookingId) => updateBookingStatus(bookingId, 'DENY');
-export const completeTrip = (bookingId) => updateBookingStatus(bookingId, 'COMPLETE');
+export const denyBooking   = (bookingId) => updateBookingStatus(bookingId, 'DENY');
+export const completeTrip  = (bookingId) => updateBookingStatus(bookingId, 'COMPLETE');
+
+// Distinct timeout — keeps timed_out status separate from deny in DB
+export const timeoutBooking = async (bookingId) => {
+    try {
+        const response = await api.patch(`/bookings/${bookingId}/timeout`);
+        return response.data;
+    } catch (error) {
+        console.error('Error setting timed_out status', error);
+        throw error;
+    }
+};
+
+// Driver cancels a trip — must send cancelled_by and cancel_reason (v3 spec)
+export const cancelTrip = async (bookingId, cancelReason) => {
+    try {
+        const response = await api.patch(`/bookings/${bookingId}/cancel`, {
+            cancelled_by: 'driver',
+            reason: cancelReason,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error cancelling trip', error);
+        throw error;
+    }
+};
+
+// Fetch active booking on reconnect — Driver App state reconciliation (v3 spec)
+export const getActiveBooking = async (driverDbId) => {
+    try {
+        const response = await api.get(`/bookings/active?driverId=${driverDbId}`);
+        return response.data; // null if no active trip
+    } catch (error) {
+        console.error('Error fetching active booking', error);
+        return null;
+    }
+};
+
+
+// Fetch logged-in driver's own profile
+export const getMe = async () => {
+    try {
+        const response = await api.get('/auth/me');
+        return response.data;
+    } catch (error) {
+        console.error('Failed to fetch profile', error);
+        throw error;
+    }
+};
 
 export const updateDriverLocation = async (location) => {
     try {

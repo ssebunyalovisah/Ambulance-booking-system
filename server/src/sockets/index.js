@@ -4,19 +4,34 @@ module.exports = (io) => {
 
     // Unified room for booking lifecycle
     socket.on('join_booking', (bookingId) => {
-      socket.join(`room:booking_${bookingId}`);
-      console.log(`Socket ${socket.id} joined room:booking_${bookingId}`);
+      const room = bookingId.startsWith('room:booking_') ? bookingId : `room:booking_${bookingId}`;
+      socket.join(room);
+      console.log(`Socket ${socket.id} joined ${room}`);
+    });
+
+    socket.on('join_room', (roomName) => {
+      socket.join(roomName);
+      console.log(`Socket ${socket.id} joined room: ${roomName}`);
     });
 
     socket.on('leave_booking', (bookingId) => {
-      socket.leave(`room:booking_${bookingId}`);
-      console.log(`Socket ${socket.id} left room:booking_${bookingId}`);
+      const room = bookingId.startsWith('room:booking_') ? bookingId : `room:booking_${bookingId}`;
+      socket.leave(room);
+      console.log(`Socket ${socket.id} left ${room}`);
+    });
+
+    socket.on('leave_room', (roomName) => {
+      socket.leave(roomName);
+      console.log(`Socket ${socket.id} left room: ${roomName}`);
     });
 
     // Also support company dashboards for overview
     socket.on('join_dashboard', (data) => {
       const companyId = typeof data === 'object' ? data.companyId : data;
       const isSuper = typeof data === 'object' ? data.isSuper : false;
+
+      // Always join the canonical admin_monitor room (v3 spec)
+      socket.join('admin_monitor');
 
       if (companyId) {
         socket.join(`company_dashboard_${companyId}`);
@@ -25,6 +40,12 @@ module.exports = (io) => {
       if (isSuper) {
         socket.join('super_dashboard');
       }
+    });
+
+    // Explicit admin_monitor join (alternative emit from client)
+    socket.on('join_admin_monitor', () => {
+      socket.join('admin_monitor');
+      console.log(`Socket ${socket.id} joined admin_monitor`);
     });
 
     socket.on('join_driver_room', (data) => {
@@ -45,6 +66,8 @@ module.exports = (io) => {
         io.to(`company_dashboard_${data.companyId}`).emit('driver_location_update', data);
       }
       io.to('super_dashboard').emit('driver_location_update', data);
+      // v3 spec: also emit to admin_monitor
+      io.to('admin_monitor').emit('ambulance_location_update', data);
     });
 
     socket.on('patient_location_update', (data) => {

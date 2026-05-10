@@ -11,16 +11,25 @@ class AdminSocketService {
         if (!this.socket) {
             this.socket = io(SOCKET_URL, {
                 transports: ['websocket'],
-                reconnection: true
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: 10,
             });
             this.socket.on('connect', () => {
                 console.log('Admin socket connected');
+                // Re-join all rooms on connect/reconnect (v3 spec)
                 if (data) this.socket.emit('join_dashboard', data);
+                this.socket.emit('join_admin_monitor');
             });
-        } else if (data) {
-            this.socket.emit('join_dashboard', data);
+        } else {
+            if (data) this.socket.emit('join_dashboard', data);
+            this.socket.emit('join_admin_monitor');
         }
         return this.socket;
+    }
+
+    joinAdminMonitor() {
+        if (this.socket) this.socket.emit('join_admin_monitor');
     }
 
     onNewBooking(callback) {
@@ -70,7 +79,9 @@ class AdminSocketService {
 
     onDriverStatusUpdate(callback) {
         if (this.socket) {
+            // Listen to both event names for compatibility
             this.socket.on('driver_status_changed', callback);
+            this.socket.on('driver_status_update', callback);  // v3 canonical event
         }
     }
     
@@ -100,12 +111,25 @@ class AdminSocketService {
     offDriverStatusUpdate(callback) {
         if (this.socket) {
             this.socket.off('driver_status_changed', callback);
+            this.socket.off('driver_status_update', callback);
         }
     }
 
     offNewBooking(callback) {
         if (this.socket) {
             this.socket.off('new_booking', callback);
+        }
+    }
+
+    offDriverLocation(callback) {
+        if (this.socket) {
+            this.socket.off('driver_location_update', callback);
+        }
+    }
+
+    offPatientLocation(callback) {
+        if (this.socket) {
+            this.socket.off('patient_location_update', callback);
         }
     }
     

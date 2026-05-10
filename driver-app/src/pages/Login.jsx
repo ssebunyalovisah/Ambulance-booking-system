@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, verifyDriverId } from '../services/api.js';
+import socketService from '../services/socket.js';
 
 const Login = () => {
     const [driverId, setDriverId] = useState('');
@@ -22,7 +23,6 @@ const Login = () => {
                         setError('');
                     }
                 } catch (err) {
-                    // ID not found or server error
                     setDriverName('');
                 } finally {
                     setIsVerifying(false);
@@ -31,7 +31,7 @@ const Login = () => {
                 setDriverName('');
             }
         };
-        const timer = setTimeout(verify, 400); // Faster debounce
+        const timer = setTimeout(verify, 400);
         return () => clearTimeout(timer);
     }, [driverId]);
 
@@ -55,6 +55,20 @@ const Login = () => {
             localStorage.setItem('driverDbId', response.user.id);
             
             if (response.user.role === 'driver') {
+                // ── Initialize socket BEFORE navigating ─────────────────────────
+                // DriverLayout's permanent socket effect runs once on mount (before login),
+                // so we must manually connect + join rooms here after a fresh login.
+                const socket = socketService.connect();
+                socketService.joinDashboard(response.user.company_id);
+                socketService.joinDriverRoom(response.user.id);
+
+                // Socket emits 'connect' which triggers reconcileState in DriverLayout.
+                // If already connected (socket was initialized), join rooms directly.
+                if (socket.connected) {
+                    socket.emit('join_dashboard', { companyId: response.user.company_id });
+                    socket.emit('join_driver_room', { driverId: response.user.id });
+                }
+
                 navigate('/requests');
             } else {
                 setError('Invalid role for driver app');

@@ -145,36 +145,50 @@ function EmergencyApp() {
        socketService.connect();
        socketService.joinBookingRoom(activeBookingId);
        
-       socketService.onBookingUpdate((data) => {
-           if (data.status === 'completed') {
-                completeTrip();
-           } else {
-                setActiveBooking(activeBookingId, data.status);
-                // Sync ambulance/driver details if they were just assigned/updated
-                if (data.company_name) {
-                    setSelectedAmbulance(data);
+        const handleBookingSync = (data) => {
+            if (data.id === activeBookingId) {
+                if (data.status === 'completed') {
+                    completeTrip();
+                } else if (data.status === 'cancelled' || data.status === 'denied') {
+                    const msg = data.status === 'denied' 
+                        ? 'Your request was declined by the assigned driver. Please try requesting another unit.'
+                        : `Booking #${data.id} has been cancelled by the operator. Reason: ${data.cancel_reason || 'Administrative action'}`;
+                    alert(msg);
+                    clearBooking();
+                    socketService.leaveBookingRoom();
+                } else {
+                    setActiveBooking(activeBookingId, data.status);
+                    if (data.company_name || data.driver_name) {
+                        setSelectedAmbulance(data);
+                    }
                 }
-           }
-       });
+            }
+        };
 
-       socketService.onDriverLocation((data) => {
+        const handleDriverLocation = (data) => {
            console.log("Real-time driver movement received:", data);
            useBookingStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng });
-       });
+        };
 
-       // 3. Share Patient Location in Real-time
-       const locationInterval = setInterval(() => {
-           if (userLocation) {
-               socketService.emitPatientLocation(activeBookingId, userLocation);
-           }
-       }, 5000); // Every 5s
+        socketService.onBookingUpdate(handleBookingSync);
+        socketService.onDriverLocation(handleDriverLocation);
 
-       return () => {
-           clearInterval(locationInterval);
-           // socketService.disconnect();
-       };
+        return () => {
+            socketService.offBookingUpdate(handleBookingSync);
+            socketService.offDriverLocation(handleDriverLocation);
+        };
     }
-  }, [activeBookingId, setActiveBooking, completeTrip, userLocation]);
+  }, [activeBookingId, setActiveBooking, completeTrip]); // Stable socket lifecycle
+
+  // 3. Independent Real-time Location Sharing
+  useEffect(() => {
+    if (activeBookingId && userLocation) {
+        const interval = setInterval(() => {
+            socketService.emitPatientLocation(activeBookingId, userLocation);
+        }, 5000);
+        return () => clearInterval(interval);
+    }
+  }, [activeBookingId, userLocation]);
 
   const handleBookingSubmit = async (formData) => {
     try {
@@ -186,7 +200,8 @@ function EmergencyApp() {
             patient_lat: userLocation.lat,
             patient_lng: userLocation.lng,
             ambulance_id: selectedAmbulance?.ambulance_id,
-            company_id: selectedAmbulance?.company_id
+            company_id: selectedAmbulance?.company_id,
+            driver_id: selectedAmbulance?.driver_id
         };
         const response = await createBooking(payload);
         
@@ -206,7 +221,11 @@ function EmergencyApp() {
 
     } catch (err) {
         console.error(err);
-        alert("Emergency Request Failed. Please try calling emergency services directly.");
+        if (err.response?.data?.error) {
+            alert(err.response.data.reason || err.response.data.error);
+        } else {
+            alert("Emergency Request Failed. Please try calling emergency services directly.");
+        }
     }
   };
 
