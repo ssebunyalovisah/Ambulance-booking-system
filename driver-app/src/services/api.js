@@ -73,3 +73,13 @@ export const updateDriverLocation = async (location) => {
         throw error;
     }
 };
+
+export const updateDriverStatus = async (status) => {
+    try {
+        const response = await api.patch('/drivers/self/status', { status });
+        return response.data;
+    } catch (error) {
+        console.error("Error updating driver status", error);
+        throw error;
+    }
+};

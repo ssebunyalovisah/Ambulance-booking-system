@@ -24,6 +24,7 @@ const Login = () => {
             const response = await login(driverId, driverName);
             localStorage.setItem('accessToken', response.accessToken);
             localStorage.setItem('role', response.user.role);
+            localStorage.setItem('companyId', response.user.company_id);
             
             if (response.user.role === 'driver') {
                 navigate('/requests');

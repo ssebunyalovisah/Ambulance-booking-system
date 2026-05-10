@@ -32,6 +32,12 @@ class SocketService {
         }
     }
 
+    joinDashboard(companyId) {
+        if (this.socket && companyId) {
+            this.socket.emit('join_dashboard', { companyId });
+        }
+    }
+
     onNewBooking(callback) {
         if (this.socket) {
             this.socket.on('new_booking', callback);

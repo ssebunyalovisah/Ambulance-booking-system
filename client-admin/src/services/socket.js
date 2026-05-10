@@ -46,7 +46,8 @@ class AdminSocketService {
                 'driver_arrived',
                 'trip_completed',
                 'booking_cancelled',
-                'driver_denied'
+                'driver_denied',
+                'booking_status_update'
             ];
             
             events.forEach(evt => {

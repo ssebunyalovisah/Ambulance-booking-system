@@ -89,7 +89,53 @@ exports.updateDriver = async (req, res) => {
              }
         }
 
+        // If status changed by admin, sync ambulance
+        if (status && updated.ambulance_id) {
+            const ambStatus = status === 'available' ? 'available' : (status === 'offline' ? 'offline' : 'busy');
+            await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', [ambStatus, updated.ambulance_id]);
+        }
+
+        // Broadcast to dashboards
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`company_dashboard_${company_id}`).emit('booking_status_update', { type: 'driver_update' });
+            io.to('super_dashboard').emit('booking_status_update', { type: 'driver_update' });
+        }
+
         res.json(updated);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.updateSelfStatus = async (req, res) => {
+    const { status } = req.body;
+    const { id, company_id, role } = req.user;
+
+    if (role !== 'driver') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        await db.query('UPDATE drivers SET status = $1 WHERE id = $2', [status, id]);
+        
+        const driverRes = await db.query('SELECT ambulance_id FROM drivers WHERE id = $1', [id]);
+        const driver = driverRes.rows[0];
+        
+        if (driver.ambulance_id) {
+            const ambStatus = status === 'available' ? 'available' : 'offline';
+            await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', [ambStatus, driver.ambulance_id]);
+        }
+
+        // Broadcast to dashboards so admins see the refresh
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`company_dashboard_${company_id}`).emit('booking_status_update', { type: 'driver_update' });
+            io.to('super_dashboard').emit('booking_status_update', { type: 'driver_update' });
+        }
+
+        res.json({ success: true, status });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });

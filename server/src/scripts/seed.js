@@ -52,6 +52,13 @@ const seed = async () => {
                 await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT');
                 await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo TEXT');
                 
+                // CRITICAL: Check for rogue contact_email column on Render
+                try {
+                    await db.query('ALTER TABLE companies ALTER COLUMN contact_email DROP NOT NULL');
+                } catch(e) {
+                    // Column might not exist, which is fine
+                }
+                
                 // Ensure unique constraints if they don't exist
                 try { await db.query('ALTER TABLE companies ADD CONSTRAINT companies_email_key UNIQUE (email)'); } catch(e){}
                 
