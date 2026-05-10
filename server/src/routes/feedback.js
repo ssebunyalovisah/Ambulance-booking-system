@@ -34,10 +34,11 @@ router.get('/admin/all', auth, async (req, res) => {
     const { company_id } = req.user;
     try {
         const sql = `
-            SELECT f.*, b.patient_name, a.ambulance_number, a.driver_name
+            SELECT f.*, b.patient_name, a.ambulance_number, d.full_name as driver_name
             FROM feedback f
             JOIN bookings b ON f.booking_id = b.id
             LEFT JOIN ambulances a ON b.ambulance_id = a.id
+            LEFT JOIN drivers d ON b.driver_id = d.id
             WHERE b.company_id = $1
             ORDER BY f.created_at DESC
         `;

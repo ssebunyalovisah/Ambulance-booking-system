@@ -195,7 +195,7 @@ const TripScreen = () => {
 
                 {/* Action buttons */}
                 <div className="space-y-4">
-                    {status === 'accepted' ? (
+                    {['accepted', 'dispatched'].includes(status) ? (
                         <button
                             onClick={handleArrived}
                             className="w-full py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-orange-200 transition-all active:scale-95"

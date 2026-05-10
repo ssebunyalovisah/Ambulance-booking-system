@@ -157,6 +157,9 @@ function EmergencyApp() {
                     clearBooking();
                     socketService.leaveBookingRoom();
                 } else {
+                    if (data.status === 'arrived') {
+                        alert('🚑 Your ambulance has arrived! Please look out for the unit.');
+                    }
                     setActiveBooking(activeBookingId, data.status);
                     if (data.company_name || data.driver_name) {
                         setSelectedAmbulance(data);
