@@ -11,7 +11,7 @@ router.patch('/:id/accept', auth, bookingController.acceptBooking);
 router.patch('/:id/dispatch', auth, bookingController.dispatchBooking);
 router.patch('/:id/arrive', auth, bookingController.arriveBooking);
 router.patch('/:id/complete', auth, bookingController.completeBooking);
-router.patch('/:id/cancel', auth, bookingController.cancelBooking);
+router.patch('/:id/cancel', bookingController.cancelBooking);
 router.patch('/:id/deny', auth, bookingController.denyBooking);
 
 module.exports = router;

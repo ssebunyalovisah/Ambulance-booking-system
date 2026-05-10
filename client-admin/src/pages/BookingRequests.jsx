@@ -85,9 +85,14 @@ const BookingRequests = () => {
     setDispatchingId(id);
   };
 
-  const filtered = activeTab === 'ALL' ? bookings : bookings.filter(b => b.status === activeTab);
+  const filtered = activeTab === 'ALL' 
+    ? bookings 
+    : bookings.filter(b => b.status?.toUpperCase() === activeTab);
+
   const counts = STATUS_TABS.reduce((acc, s) => {
-    acc[s] = s === 'ALL' ? bookings.length : bookings.filter(b => b.status === s).length;
+    acc[s] = s === 'ALL' 
+      ? bookings.length 
+      : bookings.filter(b => b.status?.toUpperCase() === s).length;
     return acc;
   }, {});
 
@@ -193,8 +198,8 @@ const BookingRequests = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[booking.status] || 'bg-slate-100 text-slate-600'}`}>
-                          {booking.status}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[booking.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
+                          {booking.status?.toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
@@ -208,7 +213,7 @@ const BookingRequests = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          {booking.status === 'PENDING' && (
+                          {booking.status?.toUpperCase() === 'PENDING' && (
                             <>
                               <button
                                 onClick={() => updateStatus(booking.id, 'CANCEL')}
@@ -224,7 +229,7 @@ const BookingRequests = () => {
                               </button>
                             </>
                           )}
-                          {booking.status === 'accepted' && (
+                          {booking.status?.toUpperCase() === 'ACCEPTED' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'DISPATCH')}
                               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition"
@@ -232,7 +237,7 @@ const BookingRequests = () => {
                               Mark Dispatched
                             </button>
                           )}
-                          {booking.status === 'dispatched' && (
+                          {booking.status?.toUpperCase() === 'DISPATCHED' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'ARRIVE')}
                               className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-lg transition"
@@ -240,7 +245,7 @@ const BookingRequests = () => {
                               Mark Arrived
                             </button>
                           )}
-                          {booking.status === 'arrived' && (
+                          {booking.status?.toUpperCase() === 'ARRIVED' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'COMPLETE')}
                               className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition"
