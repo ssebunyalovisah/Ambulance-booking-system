@@ -78,6 +78,23 @@ const seed = async () => {
             }
         }
 
+        // 0. Pre-seed Migration: Ensure Postgres is in sync with latest schema
+        console.log('Running pre-seed migrations...');
+        try {
+            // Check if driver_id exists in ambulances table (common Render deploy issue)
+            await db.query(`
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ambulances' AND column_name='driver_id') THEN
+                        ALTER TABLE ambulances ADD COLUMN driver_id INTEGER;
+                    END IF;
+                END $$;
+            `);
+            console.log('Schema synchronized.');
+        } catch (migErr) {
+            console.warn('Migration warning (might be SQLite or permissions):', migErr.message);
+        }
+
         // 1. Create a default company
         await db.query(
             'INSERT INTO companies (name, email, phone) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET name = $1',
