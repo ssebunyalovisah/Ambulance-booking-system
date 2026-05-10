@@ -1,0 +1,25 @@
+name: Sync Fork
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Sync fork
+        uses: tgymnich/fork-sync@v1.8
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ssebunyalovisah
+          head: main
+          base: main
