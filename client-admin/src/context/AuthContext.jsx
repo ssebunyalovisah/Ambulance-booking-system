@@ -160,7 +160,7 @@ export const AuthProvider = ({ children }) => {
         }
         
         if (user.role === 'driver') {
-            const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || 'http://localhost:5175';
+            const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || 'https://driver-app-kiu.vercel.app';
             window.location.href = `${driverAppUrl}/?token=${accessToken}`;
         } else {
             setAdmin(user);

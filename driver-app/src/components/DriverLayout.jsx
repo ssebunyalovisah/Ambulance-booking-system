@@ -74,7 +74,7 @@ const DriverLayout = ({ children }) => {
             // Fallback for older sessions that didn't store driverDbId
             if (!currentDriverDbId && token) {
                 try {
-                    const meRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/me`, {
+                    const meRes = await fetch(`${import.meta.env.VITE_API_URL || 'https://ambulance-booking-system-4ytj.onrender.com/api'}/auth/me`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     if (meRes.ok) {

@@ -81,22 +81,58 @@ const seed = async () => {
         // 0. Pre-seed Migration: Ensure Postgres is in sync with latest schema
         console.log('Running pre-seed migrations...');
         try {
-            // Check if driver_id exists in ambulances table (common Render deploy issue)
+            // Aggressively repair legacy columns in ambulances (Common on Render dirty DBs)
             await db.query(`
                 DO $$ 
+                DECLARE 
+                    col_record RECORD;
                 BEGIN 
                     -- 1. Ensure driver_id column exists
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ambulances' AND column_name='driver_id') THEN
                         ALTER TABLE ambulances ADD COLUMN driver_id INTEGER;
                     END IF;
 
-                    -- 2. Ensure legacy driver_name column is nullable if it exists (Render constraint fix)
-                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ambulances' AND column_name='driver_name') THEN
-                        ALTER TABLE ambulances ALTER COLUMN driver_name DROP NOT NULL;
+                    -- 2. Automatically make ALL legacy columns nullable to prevent "NOT NULL" crashes
+                    -- Core columns are: id, company_id, ambulance_number, driver_id, gps_capable, status, created_at
+                    FOR col_record IN 
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'ambulances' 
+                        AND column_name NOT IN ('id', 'company_id', 'ambulance_number', 'driver_id', 'gps_capable', 'status', 'created_at')
+                    LOOP
+                        EXECUTE format('ALTER TABLE ambulances ALTER COLUMN %I DROP NOT NULL', col_record.column_name);
+                    END LOOP;
+
+                    -- 3. Ensure drivers table has all core columns with correct types
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drivers' AND column_name='phone') THEN
+                        ALTER TABLE drivers ADD COLUMN phone TEXT;
                     END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drivers' AND column_name='driver_id') THEN
+                        ALTER TABLE drivers ADD COLUMN driver_id TEXT;
+                    ELSE
+                        -- Force cast to TEXT if it exists as wrong type (Postgres fix)
+                        ALTER TABLE drivers ALTER COLUMN driver_id TYPE TEXT USING driver_id::text;
+                    END IF;
+
+                    -- 4. Ensure bookings table has all core columns with correct types
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='pickup_address') THEN
+                        ALTER TABLE bookings ADD COLUMN pickup_address TEXT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_lat') THEN
+                        ALTER TABLE bookings ADD COLUMN patient_lat DOUBLE PRECISION;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_lng') THEN
+                        ALTER TABLE bookings ADD COLUMN patient_lng DOUBLE PRECISION;
+                    END IF;
+                    -- 5. Reset Sequences (Crucial for Postgres after seeding/migration)
+                    -- This ensures auto-increment IDs don't collide with existing data
+                    PERFORM setval('ambulances_id_seq', (SELECT MAX(id) FROM ambulances));
+                    PERFORM setval('drivers_id_seq', (SELECT MAX(id) FROM drivers));
+                    PERFORM setval('companies_id_seq', (SELECT MAX(id) FROM companies));
+                    PERFORM setval('users_id_seq', (SELECT MAX(id) FROM users));
                 END $$;
             `);
-            console.log('Schema synchronized.');
+            console.log('Schema synchronized and sequences reset.');
         } catch (migErr) {
             console.warn('Migration warning (might be SQLite or permissions):', migErr.message);
         }
