@@ -56,17 +56,41 @@ const BookingRequests = () => {
     };
     fetchData();
 
-    adminSocket.onNewBooking((newBooking) => {
-      setBookings(prev => [newBooking, ...prev]);
-    });
+    const onNewBooking = (newBooking) => {
+      setBookings(prev => {
+        if (prev.some(b => b.id === newBooking.id)) return prev;
+        return [newBooking, ...prev];
+      });
+    };
+
+    adminSocket.onNewBooking(onNewBooking);
 
     const updateBookingStatus = (updated) => {
+      if (updated.type === 'driver_update') {
+        showToast(`Driver status updated to ${updated.status}`);
+      }
       setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b));
-      // Re-fetch ambulances to update available list
       fetchAmbulances();
     };
 
     adminSocket.onBookingStatusUpdate(updateBookingStatus);
+
+    const onAmbUpdate = () => {
+        fetchAmbulances();
+    };
+    adminSocket.onAmbulanceStatusUpdate(onAmbUpdate);
+
+    const onDrvUpdate = () => {
+        fetchAmbulances();
+    };
+    adminSocket.onDriverStatusUpdate(onDrvUpdate);
+
+    return () => {
+      adminSocket.offNewBooking(onNewBooking);
+      adminSocket.offBookingStatusUpdate(updateBookingStatus);
+      adminSocket.offAmbulanceStatusUpdate(onAmbUpdate);
+      adminSocket.offDriverStatusUpdate(onDrvUpdate);
+    };
   }, [admin]);
 
   const fetchAmbulances = async () => {
@@ -185,7 +209,7 @@ const BookingRequests = () => {
               <tbody className="divide-y divide-slate-100">
                 {filtered.map(booking => (
                   <Fragment key={booking.id}>
-                    <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
+                    <tr className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-medium text-slate-900">{booking.patient_name}</div>
                         <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">

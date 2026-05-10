@@ -27,6 +27,14 @@ module.exports = (io) => {
       }
     });
 
+    socket.on('join_driver_room', (data) => {
+      const driverId = typeof data === 'object' ? data.driverId : data;
+      if (driverId) {
+        socket.join(`driver_room_${driverId}`);
+        console.log(`Socket ${socket.id} joined driver_room_${driverId}`);
+      }
+    });
+
     // Real-time location updates
     socket.on('driver_location_update', (data) => {
       // data: { bookingId, companyId, lat, lng, ambulanceId, driverId }

@@ -1,4 +1,4 @@
-# Unified Ambulance Emergency System — Complete Agent Prompt
+# Unified Ambulance Emergency System — Complete Agent Prompt (v2)
 
 > This is the single source of truth for all three surfaces: Client App, Admin Dashboard, and Driver App.
 > All developers, agents, and code generators must follow this specification exactly.
@@ -12,14 +12,26 @@ An Ambulance Emergency Booking System with three interconnected surfaces:
 | Surface | Users | Purpose |
 |---|---|---|
 | Client App | Patients (public) | Request ambulances, choose company, track in real-time |
-| Admin Dashboard | Company Admins / Super Admins | Manage ambulances, drivers, bookings, payments |
-| Driver App | Registered drivers only | Receive requests, accept/deny, navigate to patient |
+| Admin Dashboard | Company Admins / Super Admins | Monitor drivers, view completed trips, manage ambulances, evaluate performance |
+| Driver App | Registered drivers only | Receive requests directly, accept/deny, navigate to patient, notify on completion |
 
 All three surfaces share a **single backend**, a **single database**, and communicate via **REST APIs + Socket.io real-time events**.
 
 **Database:** SQLite3 (development) → PostgreSQL or MySQL (production)
 **Maps:** React-Leaflet + OpenStreetMap (no API key required — used across all surfaces)
 **Real-time:** Socket.io (primary), Firebase (optional fallback for location streams)
+
+---
+
+## Core Dispatch Philosophy
+
+> **Requests go DIRECTLY to the driver. The admin does NOT sit in the approval chain.**
+
+- The patient selects an ambulance → the request is sent **directly to the assigned driver**.
+- The driver **accepts or denies** the booking — no admin approval gate.
+- The admin **monitors only**: they see all incoming bookings, driver responses, active trips, and completed orders in real-time — but they do not block or approve the flow.
+- After a trip is completed, the driver notifies the system (`trip_completed`), which the admin sees on their dashboard.
+- Admin uses the dashboard to **evaluate driver performance**: how many orders taken, how much earned, response rates, ratings, etc.
 
 ---
 
@@ -30,7 +42,8 @@ All three surfaces share a **single backend**, a **single database**, and commun
 There is **one single login page** shared by both admins and drivers.
 
 - Admins log in with **Email + Password**
-- Drivers log in with **Driver Name + Driver ID** (no email required)
+- Drivers log in with **Driver ID + Driver Name**
+  - **Smart Login Feature:** As the driver types their Driver ID, the system performs a real-time lookup via `GET /api/drivers/verify/:id` and auto-prefills their Full Name with a "Verified" badge. This ensures accuracy and speed.
 
 After credentials are verified, the backend returns a `role` field:
 - `super_admin` → redirect to Admin Dashboard
@@ -159,14 +172,15 @@ Appears after ambulance selection:
 
 On submit:
 - Booking record created in database with `status: pending`
-- Request sent in real-time via Socket.io to the selected company's admin AND the assigned driver
-- Socket event emitted: `new_booking` → room: `room:booking_{bookingId}`
+- Request sent in real-time via Socket.io **directly to the assigned driver's private room** (`driver_room_{driverId}`)
+- Admin dashboard also receives the `new_booking` event for **monitoring purposes only** — admin does not act on it
+- Socket event emitted: `new_booking` → driver room + admin monitoring room
 
 ---
 
 ### Page 5 — Real-Time Tracking Page
 
-After booking is accepted and ambulance dispatched:
+After the driver accepts and is dispatched:
 
 - Live Leaflet map showing:
   - Ambulance marker updating in real-time
@@ -174,6 +188,7 @@ After booking is accepted and ambulance dispatched:
   - Route line between them
 - Estimated arrival time (live countdown)
 - Distance remaining
+- **Persistence:** The active booking ID and state are persisted using `Zustand/persist` (localStorage). If the patient closes the app or restarts their phone, the tracking screen is automatically restored upon re-opening, and the latest status is synced from the server.
 
 **Dispatch Info Panel** — must always show (never generic labels):
 
@@ -205,6 +220,9 @@ After trip is marked complete by driver:
 
 ## 3. Admin Dashboard
 
+> **The admin's role is monitoring and evaluation — not dispatching or approving.**
+> Admins watch the system operate in real-time and use analytics to assess driver and company performance.
+
 ### Pages
 
 1. Login Page (shared with drivers — smart redirect by role)
@@ -215,12 +233,12 @@ After trip is marked complete by driver:
    - Quick-access widgets
 4. Ambulance Management Page
 5. Driver Management Page
-6. Booking Requests Page
+6. Live Bookings Monitor Page *(replaces "Booking Requests" — admin watches but does not act)*
 7. Real-Time Tracking Map
 8. Payment Management Page
 9. Patient Records Page
 10. Ratings & Feedback Page
-11. Reports & Analytics Page
+11. Reports & Analytics Page *(driver performance, orders taken, earnings)*
 
 ---
 
@@ -229,7 +247,7 @@ After trip is marked complete by driver:
 - Register new ambulance: Ambulance Number, Driver assignment, GPS capability, Status
 - Activate / Deactivate ambulances
 - Monitor availability
-- Status auto-updates to `busy` when a booking is accepted, back to `available` when trip is completed
+- Status auto-updates to `busy` when a driver accepts a booking, back to `available` when trip is completed
 
 ---
 
@@ -245,18 +263,18 @@ Admins register all drivers. No self-serve driver sign-up.
 
 ---
 
-### Booking Requests Page
+### Live Bookings Monitor Page
 
-- Fetches from `GET /api/bookings?status=pending`
-- Listens to `new_booking` Socket.io event → new requests appear instantly without page refresh
-- Each request shows: Patient Name, Phone, Emergency Description, Patient location on Leaflet map
-- Admin actions: **Assign Ambulance → Accept → Dispatch**
-- On Accept: calls `PATCH /api/bookings/:id/accept`, emits `booking_accepted` to client + driver
-- On Dispatch: calls `PATCH /api/bookings/:id/dispatch`, emits `ambulance_dispatched`
-- Admin can see driver's response in real-time:
+> Admin **monitors** the booking flow in real-time. They do not approve or dispatch.
+
+- Fetches from `GET /api/bookings`
+- Listens to Socket.io events → bookings and status changes appear instantly without page refresh
+- Each booking row shows: Patient Name, Phone, Emergency Description, Patient location preview, Assigned Driver, Current Status
+- Admin can see driver responses in real-time:
   - ✅ Driver Accepted → booking status updates to `accepted`
-  - ❌ Driver Denied → admin is notified, can reassign to another driver
-  - ⏳ No response within timeout → admin is notified, request flagged for reassignment
+  - ❌ Driver Denied → booking status updates to `denied`, shown to admin for awareness
+  - ⏳ No response within timeout → booking flagged as `timed_out`, shown to admin
+- **Admin intervention (fallback only):** If a driver denies or times out, the admin *may* manually reassign to another available driver from this page as a fallback. This is not the normal flow — it is only a recovery option.
 
 ---
 
@@ -305,11 +323,13 @@ Admin can:
 
 ### Reports & Analytics
 
+> Key purpose: **evaluate driver performance** — orders taken, earnings, response rate, ratings.
+
 Report Types:
 - Booking Summary Report
 - Revenue / Payments Report
 - Ambulance Utilization Report
-- Driver Performance Report
+- **Driver Performance Report** — orders accepted, orders denied, total earnings, avg response time, avg rating
 - Patient & Feedback Report
 - Emergency Response Time Report
 
@@ -331,6 +351,7 @@ Charts (Chart.js or Recharts):
 - Ambulance status breakdown — pie chart
 - Average response time trend
 - Rating distribution
+- **Driver leaderboard — orders and earnings per driver**
 
 Page UI elements:
 - Date range selector
@@ -349,11 +370,17 @@ Driver logs in via the shared login page using **Driver Name + Driver ID**.
 System detects role `driver` → redirects to Driver Dashboard.
 Driver cannot access any admin routes or pages.
 
+### Global Driver Layout
+The entire Driver App is wrapped in a **Global DriverLayout**. This layout ensures that:
+1. The driver is always connected to their private socket room (`driver_room_{driverId}`).
+2. Incoming booking requests appear as a high-priority overlay **regardless of the current screen** (Home, Profile, or History).
+3. The socket connection is stable and re-joins rooms automatically on reconnection.
+
 ---
 
 ### Page 1 — Incoming Request Screen (SafeBoda-style)
 
-When a new booking is assigned to this driver, a **full-screen popup / notification card** appears showing:
+When a new booking is submitted by a patient selecting this driver, a **full-screen popup / notification card** appears **directly on the driver's app** showing:
 
 - Patient Name
 - Emergency Description
@@ -362,13 +389,15 @@ When a new booking is assigned to this driver, a **full-screen popup / notificat
 - Estimated trip time
 - Company Name (the company this driver belongs to)
 
+**Targeted Dispatch:** Requests arrive via the driver's private Socket.io room (`driver_room_{driverId}`) — no admin action required.
+
 Two action buttons:
-- ✅ **Accept** → confirms booking, driver is dispatched, emits `driver_accepted` event
-- ❌ **Deny** → returns request to admin for reassignment, emits `driver_denied` event
+- ✅ **Accept** → confirms booking, driver is dispatched, emits `driver_accepted` event to client + admin (for monitoring)
+- ❌ **Deny** → rejects booking, emits `driver_denied` event to admin (for monitoring/fallback reassignment)
 
-**Timeout:** If driver does not respond within a configurable time (e.g. 30 seconds), request auto-returns to admin and driver is notified.
+**Timeout:** If the driver does not respond within a configurable time (e.g. 30 seconds), the request auto-expires. Admin is notified via the Live Monitor for optional manual reassignment.
 
-Admin sees driver's response in real-time on the Booking Requests page.
+Admin sees the driver's response in real-time on the Live Bookings Monitor page — **for visibility only, not to act**.
 
 ---
 
@@ -389,7 +418,7 @@ After accepting:
 
 - Action buttons:
   - **"Mark as Arrived"** → updates booking status to `arrived`
-  - **"Complete Trip"** → updates status to `completed`, triggers rating page on client, emits `trip_completed`
+  - **"Complete Trip"** → updates status to `completed`, emits `trip_completed` to client (triggers rating page) and admin (for monitoring)
   - **"Cancel Trip"** → requires reason input, notifies admin
 
 Driver emits `ambulance_location_update` every 5 seconds → client tracking page and admin map update in real-time.
@@ -400,6 +429,7 @@ Driver emits `ambulance_location_update` every 5 seconds → client tracking pag
 
 - List of all past trips
 - Status, patient info, date, earnings per trip
+- Total earnings summary visible to driver
 
 ---
 
@@ -427,7 +457,7 @@ Driver emits `ambulance_location_update` every 5 seconds → client tracking pag
 | company_id | FK | Selected company |
 | ambulance_id | FK | Assigned ambulance |
 | driver_id | FK | Assigned driver |
-| status | enum | pending / accepted / dispatched / arrived / completed / cancelled |
+| status | enum | pending / accepted / dispatched / arrived / completed / cancelled / denied / timed_out |
 | payment_status | enum | unpaid / paid / confirmed |
 | rating | int | Null until submitted |
 | feedback | text | Null until submitted |
@@ -454,15 +484,16 @@ All three surfaces join a booking room: `room:booking_{bookingId}`
 
 | Event | Emitter | Listeners | Description |
 |---|---|---|---|
-| `new_booking` | Client App | Admin, Driver | Patient submits booking form |
-| `booking_accepted` | Admin | Client, Driver | Admin accepts booking |
-| `ambulance_dispatched` | Admin | Client, Driver | Admin dispatches ambulance |
-| `driver_accepted` | Driver App | Admin, Client | Driver accepts the trip |
-| `driver_denied` | Driver App | Admin | Driver denies — admin reassigns |
+| `join_driver_room` | Driver App | Server | Driver joins private room `driver_room_{driverId}` on connect/reconnect |
+| `new_booking` | Client App | **Driver** (primary), Admin (monitor only) | Patient submits booking — sent directly to driver |
+| `driver_accepted` | Driver App | Client, Admin (monitor) | Driver accepts trip — client proceeds to tracking |
+| `driver_denied` | Driver App | Admin (monitor/fallback) | Driver denies — admin notified for optional reassignment |
 | `driver_location_update` | Driver App | Client, Admin | GPS every 5 seconds |
 | `patient_location_update` | Client App | Driver, Admin | GPS every 5 seconds |
-| `trip_completed` | Driver App | Client, Admin | Trip ended — show rating page |
+| `trip_completed` | Driver App | Client, Admin | Trip ended — client shows rating page, admin records completion |
 | `payment_confirmed` | Admin | Client | Payment confirmed |
+
+> **Note:** `booking_accepted` and `ambulance_dispatched` events from admin are removed from the primary flow. Admin no longer dispatches. The driver's `driver_accepted` event is the trigger that moves the booking forward.
 
 ---
 
@@ -471,6 +502,7 @@ All three surfaces join a booking room: `room:booking_{bookingId}`
 ### Auth
 ```
 POST /auth/login/admin         — email + password → returns JWT + role
+GET  /drivers/verify/:id       — public lookup for smart login auto-prefill
 POST /auth/login/driver        — driver_name + driver_id → returns JWT + role
 POST /auth/register            — company/admin registration
 POST /auth/refresh             — refresh access token
@@ -499,16 +531,15 @@ PATCH /drivers/:id
 
 ### Bookings
 ```
-GET  /bookings                 — list (admin, filtered by company)
-POST /bookings                 — create (public — client app)
+GET  /bookings                 — list (admin, filtered by company — monitoring only)
+POST /bookings                 — create (public — client app, dispatches directly to driver)
 GET  /bookings/:id
-PATCH /bookings/:id/assign     — admin assigns ambulance + driver
-PATCH /bookings/:id/accept     — admin accepts
-PATCH /bookings/:id/dispatch   — admin dispatches
+PATCH /bookings/:id/accept     — driver accepts booking
+PATCH /bookings/:id/deny       — driver denies booking
 PATCH /bookings/:id/arrive     — driver marks arrived
 PATCH /bookings/:id/complete   — driver completes trip
-PATCH /bookings/:id/cancel     — driver or admin cancels
-PATCH /bookings/:id/deny       — driver denies request
+PATCH /bookings/:id/cancel     — driver cancels with reason
+PATCH /bookings/:id/reassign   — admin reassigns (fallback only, after deny/timeout)
 ```
 
 ### Location
@@ -548,11 +579,13 @@ GET  /reports/:type?startDate=&endDate=&ambulanceId=&driverId=&status=&paymentSt
       /services                ← api.js, socket.js
       /store                   ← Zustand (booking state, location state)
 
-  /admin-dashboard             ← Admin React app (protected)
+  /admin-dashboard             ← Admin React app (protected — monitoring & evaluation)
     /src
-      /pages                   ← Login, Register, Dashboard, Ambulances, Drivers, Bookings,
-                                  Tracking, Payments, PatientRecords, Feedback, Reports
-      /components              ← Sidebar, KPICard, BookingTable, MapPanel, ReportChart, DriverCard
+      /pages                   ← Login, Register, Dashboard, Ambulances, Drivers,
+                                  LiveBookingsMonitor, Tracking, Payments,
+                                  PatientRecords, Feedback, Reports
+      /components              ← Sidebar, KPICard, BookingMonitorTable, MapPanel,
+                                  ReportChart, DriverCard, DriverPerformanceTable
       /hooks                   ← useAuth, useSocket, useReports
       /services                ← api.js, socket.js
       /store                   ← Auth store, booking store
@@ -579,7 +612,7 @@ GET  /reports/:type?startDate=&endDate=&ambulanceId=&driverId=&status=&paymentSt
 
 ## 9. Dispatch Display Rule — No Generic Labels
 
-Everywhere a dispatch or assignment is shown — on the client tracking page, admin booking list, and driver screen — the display must always be:
+Everywhere a dispatch or assignment is shown — on the client tracking page, admin monitor, and driver screen — the display must always be:
 
 ```
 🚑  [Company Name]
@@ -600,10 +633,17 @@ Everywhere a dispatch or assignment is shown — on the client tracking page, ad
 1. **One login page, smart routing** — role detected server-side, redirect client-side
 2. **Admins use email + password** — drivers use name + driver ID
 3. **Drivers created by admin only** — no self-serve driver registration
-4. **Each company's units show separately on client** — patients see and choose by company
-5. **Dispatch always shows real names** — Company Name + Driver Name + Driver ID + call buttons
-6. **Admin sees driver responses in real-time** — accepted, denied, or timed out
-7. **Driver app is SafeBoda-style** — full-screen incoming request, accept/deny with timeout
-8. **Everything syncs** — all booking state changes propagate instantly to all three surfaces via Socket.io rooms
-9. **Single database** — client app, admin, and driver app all read/write the same tables
-10. **Maps everywhere use Leaflet + OpenStreetMap** — no Google Maps, no API key required
+4. **Requests go directly to the driver** — no admin approval gate in the normal flow
+5. **Admin monitors, not dispatches** — admin sees everything in real-time but does not block the booking flow
+6. **Driver notifies on completion** — `trip_completed` is emitted by the driver, admin sees it on the dashboard
+7. **Admin evaluates driver performance** — orders taken, orders denied, earnings, ratings, response time
+8. **Admin fallback only** — admin can manually reassign only if a driver denies or times out
+9. **Each company's units show separately on client** — patients see and choose by company
+10. **Dispatch always shows real names** — Company Name + Driver Name + Driver ID + call buttons
+11. **Driver app is SafeBoda-style** — full-screen incoming request sent directly, accept/deny with timeout
+12. **Everything syncs** — all booking state changes propagate instantly to all three surfaces via Socket.io rooms
+13. **Single database** — client app, admin, and driver app all read/write the same tables
+14. **Maps everywhere use Leaflet + OpenStreetMap** — no Google Maps, no API key required
+15. **Coordinate Safety** — Every map marker must validate that Latitude and Longitude are valid numbers before rendering
+16. **Socket Resilience** — All clients must rejoin their specific rooms immediately upon socket reconnection
+17. **Client Persistence** — Ongoing bookings must survive browser refreshes/restarts using storage persistence

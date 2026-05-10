@@ -10,6 +10,7 @@ class SocketService {
     connect() {
         if (!this.socket) {
             this.socket = io(SOCKET_URL, {
+                transports: ['websocket'],
                 reconnection: true,
                 reconnectionDelay: 1000,
                 reconnectionAttempts: 10
@@ -17,11 +18,24 @@ class SocketService {
 
             this.socket.on('connect', () => {
                 console.log('Driver socket connected:', this.socket.id);
+                // Re-join rooms if we have data
+                const companyId = localStorage.getItem('companyId');
+                if (companyId) this.joinDashboard(companyId);
+                
+                const driverDbId = localStorage.getItem('driverDbId');
+                if (driverDbId) this.joinDriverRoom(driverDbId);
             });
 
             this.socket.on('disconnect', () => {
                 console.log('Driver socket disconnected');
             });
+        } else if (this.socket.connected) {
+            // Already connected, join rooms immediately
+            const companyId = localStorage.getItem('companyId');
+            if (companyId) this.joinDashboard(companyId);
+            
+            const driverDbId = localStorage.getItem('driverDbId');
+            if (driverDbId) this.joinDriverRoom(driverDbId);
         }
         return this.socket;
     }
@@ -35,6 +49,12 @@ class SocketService {
     joinDashboard(companyId) {
         if (this.socket && companyId) {
             this.socket.emit('join_dashboard', { companyId });
+        }
+    }
+
+    joinDriverRoom(driverId) {
+        if (this.socket && driverId) {
+            this.socket.emit('join_driver_room', { driverId });
         }
     }
 

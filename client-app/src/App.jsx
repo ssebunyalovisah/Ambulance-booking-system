@@ -11,7 +11,7 @@ import TrackingPage from './pages/TrackingPage';
 import FeedbackModal from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
 import PaymentStatusPage from './pages/PaymentStatus';
-import { createBooking, getNearbyAmbulances, initiatePayment, cancelBooking } from './services/api';
+import { createBooking, getNearbyAmbulances, initiatePayment, cancelBooking, checkBookingStatus } from './services/api';
 import { socketService } from './services/socket';
 import { useBookingStore } from './store/useBookingStore';
 import { useLocationStore } from './store/useLocationStore';
@@ -90,7 +90,7 @@ function EmergencyApp() {
         },
         (error) => {
           console.warn("Geolocation failed or blocked, using default center.", error);
-          const fallback = { lat: 0.3476, lng: 32.5825 }; // Kampala, Uganda as regional fallback
+          const fallback = { lat: 0.3476, lng: 32.5825 }; 
           setUserLocation(fallback);
           setLocationLoading(false);
           fetchAmbulances(fallback);
@@ -103,11 +103,45 @@ function EmergencyApp() {
         setLocationLoading(false);
         fetchAmbulances(fallback);
     }
-  }, [setUserLocation, setNearbyAmbulances]);
 
-  // 2. Socket Connection for Tracking
+    // Listen for real-time fleet updates to refresh the list automatically
+    socketService.connect();
+    const onFleetUpdate = () => {
+        const latestLocation = useLocationStore.getState().userLocation;
+        if (latestLocation) fetchAmbulances(latestLocation);
+        else {
+             // If location not yet set, use fallback
+             fetchAmbulances({ lat: 0.3476, lng: 32.5825 });
+        }
+    };
+    socketService.onAmbulanceUpdate(onFleetUpdate);
+
+    return () => {
+        socketService.offAmbulanceUpdate(onFleetUpdate);
+    };
+  }, [setUserLocation, setNearbyAmbulances]); // Removed userLocation to prevent infinite loop
+
+  // 2. Socket Connection & Status Sync for Tracking
   useEffect(() => {
     if (activeBookingId) {
+       // Sync initial status on mount/restore
+       const syncStatus = async () => {
+           try {
+               const data = await checkBookingStatus(activeBookingId);
+               if (data.status === 'completed') {
+                   completeTrip();
+               } else if (data.status === 'cancelled') {
+                   clearBooking();
+               } else {
+                   setActiveBooking(activeBookingId, data.status);
+                   if (data.ambulance_id) setSelectedAmbulance(data);
+               }
+           } catch (e) {
+               console.error("Failed to sync booking status", e);
+           }
+       };
+       syncStatus();
+
        socketService.connect();
        socketService.joinBookingRoom(activeBookingId);
        

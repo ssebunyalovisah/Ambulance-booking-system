@@ -10,6 +10,7 @@ class SocketService {
     connect() {
         if (!this.socket) {
             this.socket = io(SOCKET_URL, {
+                transports: ['websocket'],
                 reconnection: true,
                 reconnectionDelay: 1000,
                 reconnectionAttempts: 10
@@ -43,12 +44,25 @@ class SocketService {
                 'driver_arrived',
                 'trip_completed',
                 'booking_cancelled',
-                'driver_denied'
+                'driver_denied',
+                'booking_status_update'
             ];
             
             events.forEach(evt => {
                 this.socket.on(evt, callback);
             });
+        }
+    }
+
+    onAmbulanceUpdate(callback) {
+        if (this.socket) {
+            this.socket.on('ambulance_status_changed', callback);
+        }
+    }
+
+    offAmbulanceUpdate(callback) {
+        if (this.socket) {
+            this.socket.off('ambulance_status_changed', callback);
         }
     }
 

@@ -83,3 +83,12 @@ export const updateDriverStatus = async (status) => {
         throw error;
     }
 };
+
+export const verifyDriverId = async (driver_id) => {
+    try {
+        const response = await api.get(`/drivers/verify/${driver_id}`);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};

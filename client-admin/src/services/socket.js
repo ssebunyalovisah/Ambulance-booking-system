@@ -9,11 +9,16 @@ class AdminSocketService {
 
     connect(data) {
         if (!this.socket) {
-            this.socket = io(SOCKET_URL);
+            this.socket = io(SOCKET_URL, {
+                transports: ['websocket'],
+                reconnection: true
+            });
             this.socket.on('connect', () => {
                 console.log('Admin socket connected');
-                this.socket.emit('join_dashboard', data);
+                if (data) this.socket.emit('join_dashboard', data);
             });
+        } else if (data) {
+            this.socket.emit('join_dashboard', data);
         }
         return this.socket;
     }
@@ -47,12 +52,60 @@ class AdminSocketService {
                 'trip_completed',
                 'booking_cancelled',
                 'driver_denied',
-                'booking_status_update'
+                'booking_status_update',
+                'driver_status_changed'
             ];
             
             events.forEach(evt => {
                 this.socket.on(evt, callback);
             });
+        }
+    }
+
+    onAmbulanceStatusUpdate(callback) {
+        if (this.socket) {
+            this.socket.on('ambulance_status_changed', callback);
+        }
+    }
+
+    onDriverStatusUpdate(callback) {
+        if (this.socket) {
+            this.socket.on('driver_status_changed', callback);
+        }
+    }
+    
+    offBookingStatusUpdate(callback) {
+        if (this.socket) {
+            const events = [
+                'booking_assigned',
+                'booking_accepted',
+                'ambulance_dispatched',
+                'driver_arrived',
+                'trip_completed',
+                'booking_cancelled',
+                'driver_denied',
+                'booking_status_update',
+                'driver_status_changed'
+            ];
+            events.forEach(evt => this.socket.off(evt, callback));
+        }
+    }
+
+    offAmbulanceStatusUpdate(callback) {
+        if (this.socket) {
+            this.socket.off('ambulance_status_changed', callback);
+        }
+    }
+
+    offDriverStatusUpdate(callback) {
+        if (this.socket) {
+            this.socket.off('driver_status_changed', callback);
+        }
+    }
+
+    offNewBooking(callback) {
+        if (this.socket) {
+            this.socket.off('new_booking', callback);
         }
     }
     

@@ -99,15 +99,13 @@ exports.createBooking = async (req, res) => {
         );
         const booking = bookingRes.rows[0];
 
-        // Notify admins and drivers via Socket.io
+        // Notify admins via Socket.io (Drivers will be notified later upon dispatch)
         const io = req.app.get('io');
         if (io) {
             if (booking.company_id) {
                 io.to(`company_dashboard_${booking.company_id}`).emit('new_booking', booking);
             }
             io.to('super_dashboard').emit('new_booking', booking);
-            // Also global for driver app discovery
-            io.emit('new_booking', booking);
         }
 
         res.status(201).json(booking);
@@ -126,6 +124,13 @@ const changeStatus = async (id, status, res, req, eventName) => {
         if (ambulance_id) {
             queryStr += `, ambulance_id = $${params.length + 1}`;
             params.push(ambulance_id);
+            
+            // Automatically find and link the driver assigned to this ambulance
+            const drvRes = await db.query('SELECT id FROM drivers WHERE ambulance_id = $1', [ambulance_id]);
+            if (drvRes.rowCount > 0 && !driver_id) {
+                queryStr += `, driver_id = $${params.length + 1}`;
+                params.push(drvRes.rows[0].id);
+            }
         }
         if (driver_id) {
             queryStr += `, driver_id = $${params.length + 1}`;
@@ -163,11 +168,11 @@ const changeStatus = async (id, status, res, req, eventName) => {
             broadcastBookingUpdate(req, id, eventName, booking);
         }
 
-        // Also broadcast globally if it's a new assignment so the driver app sees it
-        if (status === 'accepted') {
+        // Also broadcast to the specific driver's room if it's a new assignment
+        if (status === 'accepted' || status === 'dispatched') {
             const io = req.app.get('io');
-            if (io) {
-                io.emit('new_booking', booking);
+            if (io && booking.driver_id) {
+                io.to(`driver_room_${booking.driver_id}`).emit('new_booking', booking);
             }
         }
 
@@ -197,7 +202,9 @@ exports.assignBooking = async (req, res) => {
         
         const booking = bookingRes.rows[0];
         const io = req.app.get('io');
-        if (io) io.emit('booking_assigned', booking);
+        if (io && booking.driver_id) {
+            io.to(`driver_room_${booking.driver_id}`).emit('new_booking', booking);
+        }
         res.json(booking);
     } catch (err) {
         console.error(err);

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { adminSocket } from '../services/socket';
 import { User, Search, Trash2, Edit2, Loader2, Plus, Phone, Truck, CheckCircle, XCircle } from 'lucide-react';
 
 const STATUS_STYLES = {
@@ -11,6 +13,7 @@ const STATUS_STYLES = {
 const EMPTY_FORM = { full_name: '', phone: '', ambulance_id: '' };
 
 const DriverManagement = () => {
+  const { admin } = useAuth();
   const [drivers, setDrivers] = useState([]);
   const [ambulances, setAmbulances] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +44,30 @@ const DriverManagement = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    
+    if (admin?.company_id) {
+        adminSocket.connect({ companyId: admin.company_id });
+        
+        const onDriverUpdate = (updated) => {
+            setDrivers(prev => prev.map(d => d.id === updated.driver_id || d.id === updated.id ? { ...d, ...updated } : d));
+            fetchData();
+        };
+
+        adminSocket.onDriverStatusUpdate(onDriverUpdate);
+
+        const onAmbUpdate = () => {
+            fetchData();
+        };
+        adminSocket.onAmbulanceStatusUpdate(onAmbUpdate);
+        
+        return () => {
+            adminSocket.offDriverStatusUpdate(onDriverUpdate);
+            adminSocket.offAmbulanceStatusUpdate(onAmbUpdate);
+        };
+    }
+  }, [admin]);
 
   const openAddModal = () => {
     setEditingDriver(null);

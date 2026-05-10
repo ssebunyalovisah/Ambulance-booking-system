@@ -50,20 +50,40 @@ const Dashboard = () => {
       });
     }
     
-    adminSocket.onNewBooking((newBooking) => {
+    const onNewBooking = (newBooking) => {
         setRequests(prev => [newBooking, ...prev]);
-    });
+    };
+    adminSocket.onNewBooking(onNewBooking);
 
-    adminSocket.onDriverLocation((data) => {
+    const onLocationUpdate = (data) => {
         setAmbulances(prev => prev.map(a => a.id === data.ambulanceId ? { ...a, lat: data.lat, lng: data.lng } : a));
-    });
+    };
+    adminSocket.onDriverLocation(onLocationUpdate);
 
-    adminSocket.onBookingStatusUpdate((updatedBooking) => {
-        setRequests(prev => prev.map(r => r.id === updatedBooking.id ? updatedBooking : r));
-    });
+    const onStatusUpdate = (updatedBooking) => {
+        if (updatedBooking.id) {
+            setRequests(prev => prev.map(r => r.id === updatedBooking.id ? { ...r, ...updatedBooking } : r));
+        }
+        fetchData();
+    };
+    adminSocket.onBookingStatusUpdate(onStatusUpdate);
+
+    const onAmbUpdate = (updated) => {
+        setAmbulances(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
+    };
+    adminSocket.onAmbulanceStatusUpdate(onAmbUpdate);
+
+    const onDrvUpdate = (updated) => {
+        fetchData();
+    };
+    adminSocket.onDriverStatusUpdate(onDrvUpdate);
 
     return () => {
-        adminSocket.disconnect();
+        adminSocket.offNewBooking(onNewBooking);
+        adminSocket.offBookingStatusUpdate(onStatusUpdate);
+        adminSocket.offAmbulanceStatusUpdate(onAmbUpdate);
+        adminSocket.offDriverStatusUpdate(onDrvUpdate);
+        // adminSocket.disconnect(); // Don't disconnect here, keep it for other pages
     };
   }, [admin]);
 

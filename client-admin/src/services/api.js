@@ -57,4 +57,13 @@ api.interceptors.response.use(
     }
 );
 
+export const verifyDriverId = async (driver_id) => {
+    try {
+        const response = await api.get(`/drivers/verify/${driver_id}`);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export default api;

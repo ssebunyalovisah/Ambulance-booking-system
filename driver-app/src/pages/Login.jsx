@@ -1,13 +1,40 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api.js';
+import { login, verifyDriverId } from '../services/api.js';
 
 const Login = () => {
     const [driverId, setDriverId] = useState('');
     const [driverName, setDriverName] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
- 
+
+    // Auto-detect driver name when ID is entered
+    useEffect(() => {
+        const verify = async () => {
+            const cleanId = driverId.trim();
+            if (cleanId.length >= 3) {
+                setIsVerifying(true);
+                try {
+                    const data = await verifyDriverId(cleanId);
+                    if (data.full_name) {
+                        setDriverName(data.full_name);
+                        setError('');
+                    }
+                } catch (err) {
+                    // ID not found or server error
+                    setDriverName('');
+                } finally {
+                    setIsVerifying(false);
+                }
+            } else {
+                setDriverName('');
+            }
+        };
+        const timer = setTimeout(verify, 400); // Faster debounce
+        return () => clearTimeout(timer);
+    }, [driverId]);
+
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -25,6 +52,7 @@ const Login = () => {
             localStorage.setItem('accessToken', response.accessToken);
             localStorage.setItem('role', response.user.role);
             localStorage.setItem('companyId', response.user.company_id);
+            localStorage.setItem('driverDbId', response.user.id);
             
             if (response.user.role === 'driver') {
                 navigate('/requests');
@@ -55,13 +83,19 @@ const Login = () => {
                 </div>
  
                 <div className="mb-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-semibold text-gray-700">Full Name</label>
+                        {isVerifying && <span className="text-[10px] text-blue-500 font-bold animate-pulse">Verifying ID...</span>}
+                        {!isVerifying && driverName && <span className="text-[10px] text-green-500 font-bold">✓ Verified</span>}
+                    </div>
                     <input
                         type="text"
-                        placeholder="e.g. Ssendawula John"
+                        placeholder="Auto-fills on valid ID"
                         value={driverName}
                         onChange={(e) => setDriverName(e.target.value)}
-                        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className={`w-full p-3 border rounded-xl outline-none transition-all ${
+                            driverName ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-50 border-gray-100'
+                        }`}
                         required
                     />
                 </div>

@@ -45,8 +45,12 @@ function ChangeView({ center, zoom }) {
 }
 
 export default function MapView({ onAmbulanceSelect, ambulances, userLocation, locationLoading, trackingMode = false }) {
-  // Don't render map until we have a real location
-  if (locationLoading || !userLocation) {
+  // Don't render map until we have a valid location object
+  const isValidLocation = userLocation && 
+                          typeof userLocation.lat === 'number' && 
+                          typeof userLocation.lng === 'number';
+
+  if (locationLoading || !isValidLocation) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100">
         <div className="flex flex-col items-center gap-4 p-8 bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/40">
@@ -79,28 +83,34 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation, l
             
             <ChangeView center={userLocation} zoom={14} />
 
-            <Marker position={userLocation} icon={userIcon} />
-            <Circle 
-                center={userLocation} 
-                pathOptions={{ 
-                    fillColor: '#3b82f6', 
-                    fillOpacity: 0.1, 
-                    color: '#3b82f6', 
-                    weight: 1 
-                }} 
-                radius={800} 
-            />
+            {userLocation && typeof userLocation.lat === 'number' && typeof userLocation.lng === 'number' && (
+                <>
+                    <Marker position={userLocation} icon={userIcon} />
+                    <Circle 
+                        center={userLocation} 
+                        pathOptions={{ 
+                            fillColor: '#3b82f6', 
+                            fillOpacity: 0.1, 
+                            color: '#3b82f6', 
+                            weight: 1 
+                        }} 
+                        radius={800} 
+                    />
+                </>
+            )}
 
-            {ambulances.map((amb) => (
-                <Marker 
-                    key={amb.ambulance_id}
-                    position={{ lat: amb.lat, lng: amb.lng }}
-                    icon={ambulanceIcon}
-                    eventHandlers={{
-                        click: () => onAmbulanceSelect(amb),
-                    }}
-                />
-            ))}
+            {ambulances
+                .filter(amb => amb && typeof amb.lat === 'number' && typeof amb.lng === 'number')
+                .map((amb) => (
+                    <Marker 
+                        key={amb.ambulance_id || amb.id}
+                        position={{ lat: amb.lat, lng: amb.lng }}
+                        icon={ambulanceIcon}
+                        eventHandlers={{
+                            click: () => onAmbulanceSelect && onAmbulanceSelect(amb),
+                        }}
+                    />
+                ))}
         </MapContainer>
     </div>
   );

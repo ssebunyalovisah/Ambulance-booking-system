@@ -126,16 +126,42 @@ exports.updateSelfStatus = async (req, res) => {
         if (driver.ambulance_id) {
             const ambStatus = status === 'available' ? 'available' : 'offline';
             await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', [ambStatus, driver.ambulance_id]);
+            
+            // Fetch updated ambulance to broadcast
+            const ambRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [driver.ambulance_id]);
+            if (ambRes.rowCount > 0) {
+                const updatedAmb = ambRes.rows[0];
+                const io = req.app.get('io');
+                if (io) {
+                    io.to(`company_dashboard_${company_id}`).emit('ambulance_status_changed', updatedAmb);
+                    io.emit('ambulance_status_changed', updatedAmb);
+                }
+            }
         }
 
         // Broadcast to dashboards so admins see the refresh
         const io = req.app.get('io');
         if (io) {
-            io.to(`company_dashboard_${company_id}`).emit('booking_status_update', { type: 'driver_update' });
-            io.to('super_dashboard').emit('booking_status_update', { type: 'driver_update' });
+            const eventPayload = { type: 'driver_update', driver_id: id, status };
+            io.to(`company_dashboard_${company_id}`).emit('driver_status_changed', eventPayload);
+            io.to('super_dashboard').emit('driver_status_changed', eventPayload);
+            // Also send as a general update
+            io.to(`company_dashboard_${company_id}`).emit('booking_status_update', eventPayload);
         }
 
         res.json({ success: true, status });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.verifyDriverId = async (req, res) => {
+    const { driver_id } = req.params;
+    try {
+        const result = await db.query('SELECT full_name FROM drivers WHERE LOWER(TRIM(driver_id)) = LOWER(TRIM($1))', [driver_id]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Driver not found' });
+        res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
