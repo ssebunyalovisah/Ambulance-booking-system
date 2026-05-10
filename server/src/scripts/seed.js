@@ -45,11 +45,29 @@ const seed = async () => {
 
         // Ensure essential columns exist (Migration for existing tables)
         if (process.env.DB_TYPE === 'postgres' || process.env.DATABASE_URL) {
+            console.log('Running migrations for existing tables...');
             try {
-                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT UNIQUE');
-                await db.query('ALTER TABLE companies ALTER COLUMN email SET NOT NULL');
+                // Companies table
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS phone TEXT');
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT');
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo TEXT');
+                
+                // Ensure unique constraints if they don't exist
+                try { await db.query('ALTER TABLE companies ADD CONSTRAINT companies_email_key UNIQUE (email)'); } catch(e){}
+                
+                // Drivers table
+                await db.query('ALTER TABLE drivers ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'available\'');
+                
+                // Ambulances table
+                await db.query('ALTER TABLE ambulances ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'available\'');
+                
+                // Bookings table
+                await db.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_lat DOUBLE PRECISION');
+                await db.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_lng DOUBLE PRECISION');
+                await db.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pickup_address TEXT');
+                
             } catch (e) {
-                // Ignore errors if column already exists or table is fresh
+                console.warn('Migration step warning:', e.message);
             }
         }
 

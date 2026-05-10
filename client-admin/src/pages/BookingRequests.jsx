@@ -5,7 +5,7 @@ import { Clock, Phone, MapPin, Activity, AlertCircle, Ambulance, ChevronDown, X,
 import { adminSocket } from '../services/socket';
 import LocationModal from '../components/LocationModal';
 
-const STATUS_TABS = ['ALL', 'PENDING', 'ACCEPTED', 'DISPATCHED', 'COMPLETED', 'CANCELLED'];
+const STATUS_TABS = ['ALL', 'PENDING', 'ACCEPTED', 'DISPATCHED', 'ARRIVED', 'COMPLETED', 'CANCELLED'];
 
 const STATUS_COLORS = {
   PENDING: 'bg-orange-100 text-orange-600 border-orange-200',
@@ -62,10 +62,21 @@ const BookingRequests = () => {
 
     const updateBookingStatus = (updated) => {
       setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b));
+      // Re-fetch ambulances to update available list
+      fetchAmbulances();
     };
 
     adminSocket.onBookingStatusUpdate(updateBookingStatus);
   }, [admin]);
+
+  const fetchAmbulances = async () => {
+    try {
+      const ambRes = await api.get('/ambulances');
+      setAvailableAmbulances(ambRes.data.filter(a => a.status.toLowerCase() === 'available'));
+    } catch (err) {
+      console.error('Error fetching ambulances', err);
+    }
+  };
 
   const updateStatus = async (id, status, ambulance_id = null) => {
     try {
@@ -89,12 +100,15 @@ const BookingRequests = () => {
     ? bookings 
     : bookings.filter(b => b.status?.toUpperCase() === activeTab);
 
-  const counts = STATUS_TABS.reduce((acc, s) => {
-    acc[s] = s === 'ALL' 
-      ? bookings.length 
-      : bookings.filter(b => b.status?.toUpperCase() === s).length;
-    return acc;
-  }, {});
+  const counts = {
+    ALL: bookings.length,
+    PENDING: bookings.filter(b => b.status?.toUpperCase() === 'PENDING').length,
+    ACCEPTED: bookings.filter(b => b.status?.toUpperCase() === 'ACCEPTED').length,
+    DISPATCHED: bookings.filter(b => b.status?.toUpperCase() === 'DISPATCHED').length,
+    ARRIVED: bookings.filter(b => b.status?.toUpperCase() === 'ARRIVED').length,
+    COMPLETED: bookings.filter(b => b.status?.toUpperCase() === 'COMPLETED').length,
+    CANCELLED: bookings.filter(b => b.status?.toUpperCase() === 'CANCELLED').length,
+  };
 
   return (
     <div className="p-4 md:p-8 overflow-y-auto w-full max-h-screen">
@@ -117,7 +131,7 @@ const BookingRequests = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Pending', count: counts.PENDING, color: 'text-orange-600 bg-orange-50 border-orange-100' },
-          { label: 'Active', count: counts.ACCEPTED + counts.DISPATCHED, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+          { label: 'Active', count: counts.ACCEPTED + counts.DISPATCHED + counts.ARRIVED, color: 'text-blue-600 bg-blue-50 border-blue-100' },
           { label: 'Completed', count: counts.COMPLETED, color: 'text-green-600 bg-green-50 border-green-100' },
           { label: 'Total', count: counts.ALL, color: 'text-slate-600 bg-slate-50 border-slate-100' },
         ].map(s => (

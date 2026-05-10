@@ -4,20 +4,23 @@ const crypto = require('crypto');
 const broadcastBookingUpdate = (req, bookingId, eventName, payload = {}) => {
     const io = req.app.get('io');
     if (io) {
-        // Emit to the specific booking room (for patient and driver)
+        // 1. Emit the specific event
         io.to(`room:booking_${bookingId}`).emit(eventName, payload);
         
-        // Emit to the company dashboard (for admins)
+        // 2. Emit a generic status update event for dashboards
+        io.to(`room:booking_${bookingId}`).emit('booking_status_update', payload);
+        
         if (payload.company_id) {
             io.to(`company_dashboard_${payload.company_id}`).emit(eventName, payload);
+            io.to(`company_dashboard_${payload.company_id}`).emit('booking_status_update', payload);
         }
         
-        // Emit to super admin dashboard
         io.to('super_dashboard').emit(eventName, payload);
+        io.to('super_dashboard').emit('booking_status_update', payload);
         
-        // Fallback: some updates might be global if company_id is missing
         if (!payload.company_id) {
             io.emit(eventName, payload);
+            io.emit('booking_status_update', payload);
         }
     }
 };
