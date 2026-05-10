@@ -147,33 +147,21 @@ exports.createBooking = async (req, res) => {
             );
         }
 
+        const id = crypto.randomUUID();
         await db.query(
             `INSERT INTO bookings
                (id, patient_name, phone, emergency_description, payment_method,
                 patient_lat, patient_lng, company_id, ambulance_id, driver_id, status)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')`,
             [id, patient_name, phone, emergency_description, payment_method,
              patient_lat, patient_lng, company_id, ambulance_id || null, resolvedDriverId]
         );
 
-        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
-        const booking = bookingRes.rows[0];
+        // Fetch the rich booking with all JOINs for the dashboards
+        const richBookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
+        const booking = richBookingRes.rows[0];
 
-        // Direct-to-Driver dispatch philosophy:
-        // 1. Notify admin rooms (monitoring only — no action required)
-        // 2. Send directly to the assigned driver's private room
-        const io = req.app.get('io');
-        if (io) {
-            if (booking.company_id) {
-                io.to(`company_dashboard_${booking.company_id}`).emit('new_booking', booking);
-            }
-            io.to('super_dashboard').emit('new_booking', booking);
-
-            if (booking.driver_id) {
-                io.to(`driver_room_${booking.driver_id}`).emit('new_booking', booking);
-            }
-        }
-
+        broadcastBookingUpdate(req, id, 'new_booking', booking);
         res.status(201).json(booking);
     } catch (err) {
         console.error(err);
@@ -188,11 +176,17 @@ const changeStatus = async (id, status, res, req, eventName) => {
         let queryStr = 'UPDATE bookings SET status = $1, updated_at = CURRENT_TIMESTAMP';
         let params = [status];
 
-        if (status === 'cancelled') {
+        if (status === 'cancelled' || status === 'denied') {
             queryStr += `, cancelled_at = CURRENT_TIMESTAMP`;
-            if (cancelled_by) {
+            
+            // If explicit cancelled_by provided in body (Admin), use it.
+            // Otherwise, if user is driver, use 'driver'.
+            let by = cancelled_by;
+            if (!by && req.user && req.user.role === 'driver') by = 'driver';
+            
+            if (by) {
                 queryStr += `, cancelled_by = $${params.length + 1}`;
-                params.push(cancelled_by);
+                params.push(by);
             }
         }
 
@@ -200,17 +194,26 @@ const changeStatus = async (id, status, res, req, eventName) => {
             queryStr += `, ambulance_id = $${params.length + 1}`;
             params.push(ambulance_id);
 
-            // Auto-link the driver assigned to this ambulance if none provided
+            // Auto-link the driver assigned to this ambulance if none provided in body
             const drvRes = await db.query('SELECT id FROM drivers WHERE ambulance_id = $1', [ambulance_id]);
             if (drvRes.rowCount > 0 && !driver_id) {
                 queryStr += `, driver_id = $${params.length + 1}`;
                 params.push(drvRes.rows[0].id);
             }
         }
-        if (driver_id) {
-            queryStr += `, driver_id = $${params.length + 1}`;
-            params.push(driver_id);
+        
+        // v3 fix: If a driver is performing this action (e.g. deny/accept), auto-stamp their ID
+        // so the Admin Dashboard knows who touched the request.
+        let finalDriverId = driver_id;
+        if (!finalDriverId && req.user && req.user.role === 'driver') {
+            finalDriverId = req.user.id;
         }
+
+        if (finalDriverId) {
+            queryStr += `, driver_id = $${params.length + 1}`;
+            params.push(finalDriverId);
+        }
+
         if (reason) {
             queryStr += `, cancel_reason = $${params.length + 1}`;
             params.push(reason);
