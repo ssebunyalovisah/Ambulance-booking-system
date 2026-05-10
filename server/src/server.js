@@ -4,6 +4,7 @@ const http = require('http');
 const helmet = require('helmet');
 const compression = require('compression');
 const cors = require('cors');
+const { Server } = require('socket.io');
 const db = require('./config/db');
 
 const app = express();
