@@ -11,6 +11,11 @@ const RequestScreen = () => {
     const setCurrentTrip = useTripStore((state) => state.setCurrentTrip);
 
     useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            navigate('/');
+            return;
+        }
         const socket = socketService.connect();
         socketService.onNewBooking((data) => {
             // In a real app, check if this booking is assigned to THIS driver

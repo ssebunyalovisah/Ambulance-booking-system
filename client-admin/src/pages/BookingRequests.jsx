@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Clock, Phone, MapPin, Activity, AlertCircle, Ambulance, ChevronDown, X, Check, XCircle } from 'lucide-react';
@@ -170,7 +170,7 @@ const BookingRequests = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map(booking => (
-                  <>
+                  <Fragment key={booking.id}>
                     <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-medium text-slate-900">{booking.patient_name}</div>
@@ -294,7 +294,7 @@ const BookingRequests = () => {
                               </button>
                               <button
                                 disabled={availableAmbulances.length === 0}
-                                onClick={() => updateStatus(booking.id, 'ACCEPTED', selectedAmbulance[booking.id])}
+                                onClick={() => updateStatus(booking.id, 'ACCEPT', selectedAmbulance[booking.id])}
                                 className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition flex items-center gap-1.5"
                               >
                                 <Check className="w-4 h-4" /> Confirm
@@ -304,7 +304,7 @@ const BookingRequests = () => {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

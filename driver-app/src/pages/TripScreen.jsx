@@ -16,6 +16,11 @@ const TripScreen = () => {
     const [status, setStatus] = useState(currentTrip?.status || 'accepted');
 
     useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            navigate('/');
+            return;
+        }
         if (currentLocation && currentTrip) {
             // Update both server and socket
             updateDriverLocation(currentLocation);
