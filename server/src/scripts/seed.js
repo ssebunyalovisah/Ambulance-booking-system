@@ -85,8 +85,14 @@ const seed = async () => {
             await db.query(`
                 DO $$ 
                 BEGIN 
+                    -- 1. Ensure driver_id column exists
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ambulances' AND column_name='driver_id') THEN
                         ALTER TABLE ambulances ADD COLUMN driver_id INTEGER;
+                    END IF;
+
+                    -- 2. Ensure legacy driver_name column is nullable if it exists (Render constraint fix)
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ambulances' AND column_name='driver_name') THEN
+                        ALTER TABLE ambulances ALTER COLUMN driver_name DROP NOT NULL;
                     END IF;
                 END $$;
             `);

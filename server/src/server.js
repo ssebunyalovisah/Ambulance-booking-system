@@ -1,29 +1,63 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
-const { Server } = require('socket.io');
+const helmet = require('helmet');
+const compression = require('compression');
 const db = require('./config/db');
 
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+// 1. Production Security & Optimization
+app.use(helmet({
+    contentSecurityPolicy: false, // Disable for easier socket.io/map integration
+    crossOriginEmbedderPolicy: false
+}));
+app.use(compression());
+
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'https://ambulance-booking-system-4ytj.onrender.com',
+    'https://ambulance-admin.onrender.com',
+    'https://ambulance-driver.onrender.com'
+];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
+
 app.use(express.json());
 
-// Simple request logger
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
+// Socket.io Setup with production CORS
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins,
+        methods: ['GET', 'POST'],
+        credentials: true
+    },
+    transports: ['websocket', 'polling']
 });
 
-// Socket.io Setup
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
-});
+// Graceful Shutdown
+const shutdown = () => {
+    console.log('Shutting down gracefully...');
+    server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+    });
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
 // Import socket event handlers
 require('./sockets/index')(io);
