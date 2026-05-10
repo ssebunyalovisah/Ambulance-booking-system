@@ -50,8 +50,13 @@ exports.getAmbulances = async (req, res) => {
         const result = await db.query(queryStr, params);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
+        console.error('[DATABASE ERROR] getAmbulances failed:', {
+            message: err.message,
+            query: queryStr,
+            params: params,
+            stack: err.stack
+        });
+        res.status(500).json({ error: 'Database error fetching ambulances', details: err.message });
     }
 };
 

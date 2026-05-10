@@ -103,15 +103,18 @@ const seed = async () => {
                         EXECUTE format('ALTER TABLE ambulances ALTER COLUMN %I DROP NOT NULL', col_record.column_name);
                     END LOOP;
 
-                    -- 3. Ensure drivers table has all core columns
+                    -- 3. Ensure drivers table has all core columns with correct types
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drivers' AND column_name='phone') THEN
                         ALTER TABLE drivers ADD COLUMN phone TEXT;
                     END IF;
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drivers' AND column_name='driver_id') THEN
                         ALTER TABLE drivers ADD COLUMN driver_id TEXT;
+                    ELSE
+                        -- Force cast to TEXT if it exists as wrong type (Postgres fix)
+                        ALTER TABLE drivers ALTER COLUMN driver_id TYPE TEXT USING driver_id::text;
                     END IF;
 
-                    -- 4. Ensure bookings table has all core columns
+                    -- 4. Ensure bookings table has all core columns with correct types
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='pickup_address') THEN
                         ALTER TABLE bookings ADD COLUMN pickup_address TEXT;
                     END IF;
