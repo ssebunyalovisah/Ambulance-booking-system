@@ -102,6 +102,25 @@ const seed = async () => {
                     LOOP
                         EXECUTE format('ALTER TABLE ambulances ALTER COLUMN %I DROP NOT NULL', col_record.column_name);
                     END LOOP;
+
+                    -- 3. Ensure drivers table has all core columns
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drivers' AND column_name='phone') THEN
+                        ALTER TABLE drivers ADD COLUMN phone TEXT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drivers' AND column_name='driver_id') THEN
+                        ALTER TABLE drivers ADD COLUMN driver_id TEXT;
+                    END IF;
+
+                    -- 4. Ensure bookings table has all core columns
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='pickup_address') THEN
+                        ALTER TABLE bookings ADD COLUMN pickup_address TEXT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_lat') THEN
+                        ALTER TABLE bookings ADD COLUMN patient_lat DOUBLE PRECISION;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_lng') THEN
+                        ALTER TABLE bookings ADD COLUMN patient_lng DOUBLE PRECISION;
+                    END IF;
                 END $$;
             `);
             console.log('Schema synchronized.');
