@@ -179,8 +179,8 @@ function EmergencyApp() {
   // --- RENDER LOGIC ---
 
 
-  // If there is an active booking, show the Tracking Page
-  if (activeBookingId) {
+  // If there is an active booking, show the Tracking Page (unless trip is completed)
+  if (activeBookingId && !isTripCompleted) {
     return <TrackingPage onCancel={async () => {
         try {
             await cancelBooking(activeBookingId);

@@ -50,7 +50,8 @@ const TripScreen = () => {
         try {
             await completeTrip(currentTrip.id);
             socketService.emitTripCompleted(currentTrip.id);
-            navigate('/history');
+            useTripStore.getState().setCurrentTrip(null);
+            navigate('/requests');
         } catch (error) {
             console.error('Complete failed', error);
         }
