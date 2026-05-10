@@ -18,13 +18,64 @@ const seed = async () => {
         
         // If postgres, we must convert SQLite syntax to Postgres syntax
         if (process.env.DB_TYPE === 'postgres' || process.env.DATABASE_URL) {
+            console.log('Converting SQLite schema to PostgreSQL...');
             schema = schema.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY');
             schema = schema.replace(/DATETIME/g, 'TIMESTAMP');
+            schema = schema.replace(/DEFAULT CURRENT_TIMESTAMP/g, 'DEFAULT NOW()');
+            schema = schema.replace(/REAL/g, 'DOUBLE PRECISION');
+            schema = schema.replace(/BOOLEAN DEFAULT 1/g, 'BOOLEAN DEFAULT TRUE');
+            schema = schema.replace(/BOOLEAN DEFAULT 0/g, 'BOOLEAN DEFAULT FALSE');
             
-            await db.query(schema);
+            // Split by semicolon and filter out empty lines/comments
+            const statements = schema.split(';').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('--'));
+            
+            for (let statement of statements) {
+                try {
+                    await db.query(statement);
+                } catch (e) {
+                    // Ignore "already exists" errors if using CREATE TABLE IF NOT EXISTS
+                    if (!e.message.includes('already exists')) {
+                        console.warn(`Statement failed: ${statement.substring(0, 50)}... Error: ${e.message}`);
+                    }
+                }
+            }
         } else {
-            // SQLite executes in the background, but let's assume SQLite handled it in db.js
             console.log('SQLite handles schema automatically in db.js');
+        }
+
+        // Ensure essential columns exist (Migration for existing tables)
+        if (process.env.DB_TYPE === 'postgres' || process.env.DATABASE_URL) {
+            console.log('Running migrations for existing tables...');
+            try {
+                // Companies table
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS phone TEXT');
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT');
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo TEXT');
+                
+                // CRITICAL: Check for rogue contact_email column on Render
+                try {
+                    await db.query('ALTER TABLE companies ALTER COLUMN contact_email DROP NOT NULL');
+                } catch(e) {
+                    // Column might not exist, which is fine
+                }
+                
+                // Ensure unique constraints if they don't exist
+                try { await db.query('ALTER TABLE companies ADD CONSTRAINT companies_email_key UNIQUE (email)'); } catch(e){}
+                
+                // Drivers table
+                await db.query('ALTER TABLE drivers ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'available\'');
+                
+                // Ambulances table
+                await db.query('ALTER TABLE ambulances ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'available\'');
+                
+                // Bookings table
+                await db.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_lat DOUBLE PRECISION');
+                await db.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_lng DOUBLE PRECISION');
+                await db.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pickup_address TEXT');
+                
+            } catch (e) {
+                console.warn('Migration step warning:', e.message);
+            }
         }
 
         // 1. Create a default company

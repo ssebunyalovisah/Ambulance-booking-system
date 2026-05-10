@@ -1,13 +1,40 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api.js';
+import { login, verifyDriverId } from '../services/api.js';
+import socketService from '../services/socket.js';
 
 const Login = () => {
     const [driverId, setDriverId] = useState('');
     const [driverName, setDriverName] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
- 
+
+    // Auto-detect driver name when ID is entered
+    useEffect(() => {
+        const verify = async () => {
+            const cleanId = driverId.trim();
+            if (cleanId.length >= 3) {
+                setIsVerifying(true);
+                try {
+                    const data = await verifyDriverId(cleanId);
+                    if (data.full_name) {
+                        setDriverName(data.full_name);
+                        setError('');
+                    }
+                } catch (err) {
+                    setDriverName('');
+                } finally {
+                    setIsVerifying(false);
+                }
+            } else {
+                setDriverName('');
+            }
+        };
+        const timer = setTimeout(verify, 400);
+        return () => clearTimeout(timer);
+    }, [driverId]);
+
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -24,8 +51,24 @@ const Login = () => {
             const response = await login(driverId, driverName);
             localStorage.setItem('accessToken', response.accessToken);
             localStorage.setItem('role', response.user.role);
+            localStorage.setItem('companyId', response.user.company_id);
+            localStorage.setItem('driverDbId', response.user.id);
             
             if (response.user.role === 'driver') {
+                // ── Initialize socket BEFORE navigating ─────────────────────────
+                // DriverLayout's permanent socket effect runs once on mount (before login),
+                // so we must manually connect + join rooms here after a fresh login.
+                const socket = socketService.connect();
+                socketService.joinDashboard(response.user.company_id);
+                socketService.joinDriverRoom(response.user.id);
+
+                // Socket emits 'connect' which triggers reconcileState in DriverLayout.
+                // If already connected (socket was initialized), join rooms directly.
+                if (socket.connected) {
+                    socket.emit('join_dashboard', { companyId: response.user.company_id });
+                    socket.emit('join_driver_room', { driverId: response.user.id });
+                }
+
                 navigate('/requests');
             } else {
                 setError('Invalid role for driver app');
@@ -54,13 +97,19 @@ const Login = () => {
                 </div>
  
                 <div className="mb-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-semibold text-gray-700">Full Name</label>
+                        {isVerifying && <span className="text-[10px] text-blue-500 font-bold animate-pulse">Verifying ID...</span>}
+                        {!isVerifying && driverName && <span className="text-[10px] text-green-500 font-bold">✓ Verified</span>}
+                    </div>
                     <input
                         type="text"
-                        placeholder="e.g. Ssendawula John"
+                        placeholder="Auto-fills on valid ID"
                         value={driverName}
                         onChange={(e) => setDriverName(e.target.value)}
-                        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className={`w-full p-3 border rounded-xl outline-none transition-all ${
+                            driverName ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-50 border-gray-100'
+                        }`}
                         required
                     />
                 </div>

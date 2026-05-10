@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { adminSocket } from '../services/socket';
 import { Ambulance, Search, Trash2, Edit2, CheckCircle, XCircle, WifiOff, X, Loader2, Plus } from 'lucide-react';
 
 const STATUS_CYCLE = { 'available': 'busy', 'busy': 'offline', 'offline': 'available' };
@@ -12,6 +14,7 @@ const STATUS_STYLES = {
 const EMPTY_FORM = { ambulance_number: '', driver_id: '' };
 
 const AmbulanceManagement = () => {
+  const { admin } = useAuth();
   const [ambulances, setAmbulances] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,30 @@ const AmbulanceManagement = () => {
     }
   };
 
-  useEffect(() => { fetchAmbulances(); }, []);
+  useEffect(() => { 
+    fetchAmbulances(); 
+    
+    if (admin?.company_id) {
+        adminSocket.connect({ companyId: admin.company_id });
+        
+        const onAmbUpdate = (updated) => {
+            setAmbulances(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
+            fetchAmbulances(); // Force refresh to keep stats in sync
+        };
+
+        adminSocket.onAmbulanceStatusUpdate(onAmbUpdate);
+        
+        const onDrvUpdate = () => {
+            fetchAmbulances();
+        };
+        adminSocket.onDriverStatusUpdate(onDrvUpdate);
+        
+        return () => {
+            adminSocket.offAmbulanceStatusUpdate(onAmbUpdate);
+            adminSocket.offDriverStatusUpdate(onDrvUpdate);
+        };
+    }
+  }, [admin]);
 
   const openAddModal = () => {
     setEditingAmbulance(null);

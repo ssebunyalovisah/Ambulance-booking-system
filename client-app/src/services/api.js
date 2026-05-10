@@ -61,9 +61,12 @@ export const getPaymentStatus = async (booking_id) => {
     }
 };
 
-export const cancelBooking = async (bookingId) => {
+export const cancelBooking = async (bookingId, reason = 'Patient cancelled the request') => {
     try {
-        const response = await api.patch(`/bookings/${bookingId}/cancel`);
+        const response = await api.patch(`/bookings/${bookingId}/cancel`, {
+            cancelled_by: 'client',
+            reason,
+        });
         return response.data;
     } catch (error) {
         console.error("Error cancelling booking", error);

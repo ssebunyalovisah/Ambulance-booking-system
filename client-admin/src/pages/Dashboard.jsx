@@ -4,8 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import AdminMap from '../components/AdminMap';
 import RequestsBoard from '../components/RequestsBoard';
-import StatCards from '../components/StatCards';
-import { Ambulance, Bell, Clock, TrendingUp, AlertTriangle, Activity } from 'lucide-react';
+import { Ambulance, Bell, Clock, Activity, Check } from 'lucide-react';
 
 function LiveClock() {
   const [time, setTime] = useState(new Date());
@@ -27,184 +26,235 @@ const Dashboard = () => {
   const { admin } = useAuth();
   const [requests, setRequests] = useState([]);
   const [ambulances, setAmbulances] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [socketConnected, setSocketConnected] = useState(true);
+
+  const fetchData = async () => {
+    try {
+      const [ambRes, bookRes] = await Promise.all([
+          api.get('/ambulances'),
+          api.get('/bookings')
+      ]);
+      setAmbulances(ambRes.data);
+      setRequests(bookRes.data);
+    } catch (err) {
+      console.error('Failed to fetch initial data', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [ambRes, bookRes] = await Promise.all([
-            api.get('/ambulances'),
-            api.get('/bookings')
-        ]);
-        setAmbulances(ambRes.data);
-        setRequests(bookRes.data);
-      } catch (err) {
-        console.error('Failed to fetch initial data', err);
-      }
-    };
     fetchData();
  
-    if (admin?.company_id) {
+    if (admin?.company_id || admin?.role === 'super_admin' || admin?.role === 'SUPER_ADMIN') {
       adminSocket.connect({ 
         companyId: admin.company_id, 
         isSuper: admin.role === 'super_admin' || admin.role === 'SUPER_ADMIN'
       });
     }
+
+    // Track socket connection state for System Live indicator
+    const sock = adminSocket.socket;
+    const onConnect    = () => { setSocketConnected(true);  fetchData(); }; // re-fetch on reconnect
+    const onDisconnect = () => setSocketConnected(false);
+    if (sock) {
+        sock.on('connect',    onConnect);
+        sock.on('disconnect', onDisconnect);
+    }
     
-    adminSocket.onNewBooking((newBooking) => {
-        setRequests(prev => [newBooking, ...prev]);
-    });
+    const onNewBooking = (newBooking) => {
+        setRequests(prev => {
+            if (prev.some(r => r.id === newBooking.id)) return prev;
+            return [newBooking, ...prev];
+        });
+    };
+    adminSocket.onNewBooking(onNewBooking);
 
-    adminSocket.onDriverLocation((data) => {
+    const onLocationUpdate = (data) => {
         setAmbulances(prev => prev.map(a => a.id === data.ambulanceId ? { ...a, lat: data.lat, lng: data.lng } : a));
-    });
+    };
+    adminSocket.onDriverLocation(onLocationUpdate);
 
-    adminSocket.onBookingStatusUpdate((updatedBooking) => {
-        setRequests(prev => prev.map(r => r.id === updatedBooking.id ? updatedBooking : r));
-    });
+    const onStatusUpdate = (updatedBooking) => {
+        setRequests(prev => prev.map(r => r.id === updatedBooking.id ? { ...r, ...updatedBooking } : r));
+        fetchData();
+    };
+    adminSocket.onBookingStatusUpdate(onStatusUpdate);
+
+    const onAmbUpdate = (updated) => {
+        setAmbulances(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
+    };
+    adminSocket.onAmbulanceStatusUpdate(onAmbUpdate);
+
+    const onDrvUpdate = (updated) => {
+        setAmbulances(prev => prev.map(a => a.driver_id === updated.driver_id ? { ...a, status: updated.status } : a));
+        fetchData();
+    };
+    adminSocket.onDriverStatusUpdate(onDrvUpdate);
 
     return () => {
-        adminSocket.disconnect();
+        if (sock) {
+            sock.off('connect',    onConnect);
+            sock.off('disconnect', onDisconnect);
+        }
+        adminSocket.offNewBooking(onNewBooking);
+        adminSocket.offBookingStatusUpdate(onStatusUpdate);
+        adminSocket.offAmbulanceStatusUpdate(onAmbUpdate);
+        adminSocket.offDriverStatusUpdate(onDrvUpdate);
+        adminSocket.offDriverLocation(onLocationUpdate);
     };
   }, [admin]);
 
-  const handleAcceptRequest = async (id, ambulanceId) => {
-      try {
-          await api.patch(`/bookings/${id}/accept`, { ambulance_id: ambulanceId });
-      } catch (err) {
-          console.error('Error accepting request:', err);
-      }
+  const counts = {
+    ready: ambulances.filter(a => a.status?.toLowerCase() === 'available').length,
+    active: requests.filter(r => ['accepted', 'dispatched'].includes(r.status?.toLowerCase())).length,
+    onMission: requests.filter(r => r.status?.toLowerCase() === 'arrived').length,
+    pending: requests.filter(r => r.status?.toLowerCase() === 'pending').length,
   };
-
-  const handleRejectRequest = async (id) => {
-    try {
-        await api.patch(`/bookings/${id}/cancel`);
-    } catch (err) {
-        console.error('Error cancelling request:', err);
-    }
-  };
-
-  const pendingCount = requests.filter(r => r.status === 'PENDING').length;
-  const activeCount = requests.filter(r => r.status === 'ACCEPTED' || r.status === 'DISPATCHED').length;
-  const availableCount = ambulances.filter(a => a.status === 'AVAILABLE').length;
-  const busyCount = ambulances.filter(a => a.status === 'BUSY').length;
 
   return (
-    <div className="w-full overflow-y-auto max-h-screen">
+    <div className="w-full overflow-y-auto max-h-screen bg-slate-50">
       {/* HERO BANNER */}
       <div
-        className="relative w-full h-[280px] md:h-[320px] overflow-hidden"
+        className="relative w-full h-[320px] overflow-hidden"
         style={{
           backgroundImage: `url('/ambulance-bg.jpg')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center 30%',
         }}
       >
-        {/* Multi-layer overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-
-        {/* Animated pulse ring for emergency feel */}
-        {pendingCount > 0 && (
-          <div className="absolute top-6 right-6 flex items-center gap-3">
-            <div className="relative">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-ping absolute inset-0" />
-              <div className="w-3 h-3 bg-red-500 rounded-full relative" />
-            </div>
-            <div className="bg-red-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg shadow-red-600/30">
-              <AlertTriangle className="w-4 h-4" />
-              {pendingCount} Pending {pendingCount === 1 ? 'Emergency' : 'Emergencies'}
-            </div>
-          </div>
-        )}
-
-        {/* Content */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/80 to-transparent" />
+        
         <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/30">
-                  <Ambulance className="w-6 h-6 text-white" />
+          <div className="flex flex-col md:flex-row items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center shadow-xl shadow-orange-600/40">
+                  <Ambulance className="w-7 h-7 text-white" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-green-400 text-xs font-bold uppercase tracking-widest">System Live</span>
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-ping'}`} />
+                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${socketConnected ? 'text-green-400' : 'text-red-400'}`}>
+                            {socketConnected ? 'System Live' : 'Reconnecting…'}
+                        </span>
+                    </div>
+                    <h2 className="text-white/60 text-xs font-bold uppercase tracking-widest mt-0.5">Dispatch Command Center</h2>
                 </div>
               </div>
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight leading-tight">
-                Dispatch Command<br />
-                <span className="text-orange-400">Center</span>
+              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-none mb-4">
+                Monitoring Live<br />
+                <span className="text-orange-500">Fleet Operations</span>
               </h1>
-              <p className="text-slate-300 mt-2 text-sm md:text-base max-w-md">
-                Monitor live fleet status, respond to emergencies, and coordinate dispatch operations.
+              <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-md opacity-80">
+                Watching real-time status changes, driver responses, and emergency coordination across the network.
               </p>
             </div>
 
-            {/* Quick stats badges */}
-            <div className="hidden md:flex flex-col gap-2 text-right">
+            <div className="flex flex-col items-end gap-4">
               <LiveClock />
-              <div className="flex gap-3 justify-end mt-2">
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-center min-w-[80px]">
-                  <div className="text-2xl font-black text-orange-400">{availableCount}</div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Ready</div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-center min-w-[80px]">
-                  <div className="text-2xl font-black text-red-400">{activeCount}</div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Active</div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-center min-w-[80px]">
-                  <div className="text-2xl font-black text-blue-400">{busyCount}</div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">On Mission</div>
-                </div>
+              <div className="flex gap-3 mt-2">
+                {[
+                    { label: 'Ready', val: counts.ready, color: 'text-green-400' },
+                    { label: 'Active', val: counts.active, color: 'text-orange-400' },
+                    { label: 'On Mission', val: counts.onMission, color: 'text-blue-400' },
+                    { label: 'Pending', val: counts.pending, color: 'text-red-400' },
+                ].map(s => (
+                    <div key={s.label} className="bg-white/5 backdrop-blur-xl border border-white/10 px-5 py-3 rounded-2xl text-center min-w-[100px] shadow-2xl">
+                        <div className={`text-3xl font-black ${s.color}`}>{s.val}</div>
+                        <div className="text-[10px] text-white/40 uppercase tracking-[0.1em] font-black mt-1">{s.label}</div>
+                    </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div className="p-4 md:p-8">
-        {/* Mobile clock */}
-        <div className="md:hidden mb-4">
-          <LiveClock />
-        </div>
-
-        <StatCards stats={{ 
-            active: activeCount, 
-            available: availableCount, 
-            busy: busyCount,
-            pending: pendingCount,
-        }} />
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-8" style={{ minHeight: 'calc(100vh - 520px)' }}>
-          <div className="xl:col-span-2 flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-orange-500" />
-                Live Fleet Map
-              </h2>
-              <span className="text-xs text-slate-500 font-medium">{ambulances.length} units tracked</span>
+      {/* MAIN COMMAND INTERFACE */}
+      <div className="p-6 md:p-10 -mt-8 relative z-10">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+          
+          <div className="xl:col-span-3 space-y-8">
+            <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-20">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
+                        <Activity className="w-4 h-4 text-slate-500" />
+                    </div>
+                    <div>
+                        <h2 className="font-black text-slate-900 text-sm uppercase tracking-wider">Live Fleet Map</h2>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{ambulances.length} units tracked globally</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                        <div className="w-2 h-2 bg-green-500 rounded-full" /> Available
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                        <div className="w-2 h-2 bg-red-500 rounded-full" /> On Trip
+                    </div>
+                </div>
+              </div>
+              <div className="flex-1 relative">
+                <AdminMap ambulances={ambulances} activeRequests={requests} />
+              </div>
             </div>
-            <AdminMap ambulances={ambulances} activeRequests={requests} />
-          </div>
-          <div className="flex flex-col overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                <Bell className="w-4 h-4 text-orange-500" />
-                Incoming Requests
-              </h2>
-              {pendingCount > 0 && (
-                <span className="bg-red-100 text-red-600 text-xs font-black px-2 py-0.5 rounded-full">
-                  {pendingCount} new
-                </span>
-              )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {requests.filter(r => ['accepted', 'dispatched', 'arrived'].includes(r.status?.toLowerCase())).slice(0, 6).map(r => (
+                    <div key={r.id} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider ${
+                                r.status === 'arrived' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                            }`}>
+                                {r.status}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold">{new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <h3 className="font-bold text-slate-900 truncate">{r.patient_name}</h3>
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                            <Ambulance className="w-3 h-3" /> {r.driver_name || 'Unit'} | {r.ambulance_number}
+                        </p>
+                    </div>
+                ))}
+                {counts.active + counts.onMission === 0 && (
+                    <div className="col-span-full py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-3">
+                            <Check className="w-6 h-6 text-green-500" />
+                        </div>
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">All Clear • No Active Emergencies</p>
+                    </div>
+                )}
             </div>
-            <RequestsBoard 
-              requests={requests.filter(r => r.status === 'PENDING')} 
-              onAccept={handleAcceptRequest} 
-              onReject={handleRejectRequest}
-              availableAmbulances={ambulances.filter(a => a.status === 'AVAILABLE')}
-            />
           </div>
+
+          <div className="xl:col-span-1">
+            <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+                <div className="px-6 py-5 border-b border-slate-100 bg-white/50 backdrop-blur-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center">
+                            <Bell className="w-4 h-4 text-red-500 animate-pulse" />
+                        </div>
+                        <h2 className="font-black text-slate-900 text-sm uppercase tracking-wider">Incoming Requests</h2>
+                    </div>
+                    {counts.pending > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                            {counts.pending}
+                        </span>
+                    )}
+                </div>
+                <div className="p-4 space-y-4 overflow-y-auto max-h-[700px]">
+                    <RequestsBoard 
+                        requests={requests.filter(r => r.status?.toLowerCase() === 'pending')} 
+                        readOnly={true} 
+                    />
+                </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

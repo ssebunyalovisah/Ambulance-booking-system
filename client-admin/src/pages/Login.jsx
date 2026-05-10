@@ -1,19 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, Loader2, Ambulance, Eye, EyeOff, Shield } from 'lucide-react';
+import { Lock, Mail, Loader2, Ambulance, Eye, EyeOff, Shield, CheckCircle } from 'lucide-react';
+import { verifyDriverId } from '../services/api';
 
 const Login = () => {
   const [identifier, setIdentifier] = useState('');
   const [credential, setCredential] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const isDriver = identifier && !identifier.includes('@') && identifier.startsWith('DRV-');
+  const isDriver = identifier && !identifier.includes('@') && identifier.trim().toLowerCase().startsWith('drv-');
+
+  // Auto-detect driver name when ID is entered
+  useEffect(() => {
+    const verify = async () => {
+      const cleanId = identifier.trim();
+      if (isDriver && cleanId.length >= 4) {
+        setIsVerifying(true);
+        try {
+          const data = await verifyDriverId(cleanId);
+          if (data.full_name) {
+            setCredential(data.full_name);
+            setError('');
+          }
+        } catch (err) {
+          setCredential('');
+        } finally {
+          setIsVerifying(false);
+        }
+      } else if (isDriver) {
+        setCredential('');
+      }
+    };
+    const timer = setTimeout(verify, 400);
+    return () => clearTimeout(timer);
+  }, [identifier, isDriver]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,9 +146,21 @@ const Login = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 ml-1">
-                {isDriver ? 'Driver Full Name' : 'Password'}
-              </label>
+              <div className="flex justify-between items-center px-1">
+                <label className="text-sm font-semibold text-slate-300">
+                  {isDriver ? 'Driver Full Name' : 'Password'}
+                </label>
+                {isDriver && isVerifying && (
+                  <span className="text-[10px] text-orange-400 font-bold animate-pulse uppercase tracking-widest">
+                    Searching...
+                  </span>
+                )}
+                {isDriver && !isVerifying && credential && (
+                  <span className="text-[10px] text-green-400 font-bold flex items-center gap-1 uppercase tracking-widest">
+                    <CheckCircle className="w-3 h-3" /> Identity Verified
+                  </span>
+                )}
+              </div>
               <div className="relative group">
                 {!isDriver && <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-orange-500 transition-colors" />}
                 <input
@@ -129,8 +168,8 @@ const Login = () => {
                   type={isDriver ? 'text' : (showPassword ? 'text' : 'password')}
                   value={credential}
                   onChange={(e) => setCredential(e.target.value)}
-                  className={`w-full bg-slate-900 border border-slate-700 text-white ${!isDriver ? 'pl-12 pr-12' : 'px-4'} py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder:text-slate-600 text-sm`}
-                  placeholder={isDriver ? 'e.g. John Doe' : '••••••••'}
+                  className={`w-full bg-slate-900 border ${isDriver && credential ? 'border-green-500/50 text-green-400' : 'border-slate-700 text-white'} ${!isDriver ? 'pl-12 pr-12' : 'px-4'} py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder:text-slate-600 text-sm`}
+                  placeholder={isDriver ? 'Auto-detected from ID' : '••••••••'}
                   required
                 />
                 {!isDriver && (

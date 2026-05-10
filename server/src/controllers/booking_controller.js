@@ -1,49 +1,63 @@
 const db = require('../config/db');
 const crypto = require('crypto');
 
+// Reusable rich SELECT — includes driver_phone and company_phone everywhere
+const BOOKING_SELECT = `
+    SELECT b.*,
+           c.name  AS company_name,
+           c.phone AS company_phone,
+           d.full_name AS driver_name,
+           d.driver_id AS driver_uid,
+           d.phone     AS driver_phone,
+           a.ambulance_number
+    FROM bookings b
+    LEFT JOIN companies  c ON b.company_id  = c.id
+    LEFT JOIN drivers    d ON b.driver_id   = d.id
+    LEFT JOIN ambulances a ON b.ambulance_id = a.id
+`;
+
 const broadcastBookingUpdate = (req, bookingId, eventName, payload = {}) => {
     const io = req.app.get('io');
     if (io) {
-        // Emit to the specific booking room (for patient and driver)
-        io.to(`room:booking_${bookingId}`).emit(eventName, payload);
+        console.log(`[Socket Broadcast] Emitting "${eventName}" for booking ${bookingId}`);
         
-        // Emit to the company dashboard (for admins)
+        // 1. Shared booking room (Client + Driver + Admin)
+        const bookingRoom = `room:booking_${bookingId}`;
+        io.to(bookingRoom).emit(eventName, payload);
+        io.to(bookingRoom).emit('booking_status_update', payload);
+
+        // 2. Company specific monitor
         if (payload.company_id) {
             io.to(`company_dashboard_${payload.company_id}`).emit(eventName, payload);
+            io.to(`company_dashboard_${payload.company_id}`).emit('booking_status_update', payload);
         }
-        
-        // Emit to super admin dashboard
+
+        // 3. Super Admin monitor
         io.to('super_dashboard').emit(eventName, payload);
-        
-        // Fallback: some updates might be global if company_id is missing
-        if (!payload.company_id) {
-            io.emit(eventName, payload);
+        io.to('super_dashboard').emit('booking_status_update', payload);
+
+        // 4. Canonical admin_monitor room (v3 spec)
+        io.to('admin_monitor').emit(eventName, payload);
+        io.to('admin_monitor').emit('booking_status_update', payload);
+
+        // 5. Driver's private room
+        if (payload.driver_id) {
+            io.to(`driver_room_${payload.driver_id}`).emit('booking_status_update', payload);
         }
+    } else {
+        console.warn('[Socket Broadcast] FAILED: io object not found on req.app');
     }
 };
 
+// ─── GET LIST ────────────────────────────────────────────────────────────────
 exports.getBookings = async (req, res) => {
     const { company_id, role } = req.user;
     try {
-        let queryStr = `
-            SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
-            FROM bookings b
-            LEFT JOIN companies c ON b.company_id = c.id
-            LEFT JOIN drivers d ON b.driver_id = d.id
-            LEFT JOIN ambulances a ON b.ambulance_id = a.id
-            WHERE b.company_id = $1 ORDER BY b.created_at DESC
-        `;
+        let queryStr = BOOKING_SELECT + ' WHERE b.company_id = $1 ORDER BY b.created_at DESC';
         let params = [company_id];
 
-        if (role === 'super_admin') {
-            queryStr = `
-                SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
-                FROM bookings b
-                LEFT JOIN companies c ON b.company_id = c.id
-                LEFT JOIN drivers d ON b.driver_id = d.id
-                LEFT JOIN ambulances a ON b.ambulance_id = a.id
-                ORDER BY b.created_at DESC
-            `;
+        if (role === 'super_admin' || role === 'SUPER_ADMIN') {
+            queryStr = BOOKING_SELECT + ' ORDER BY b.created_at DESC';
             params = [];
         }
 
@@ -55,17 +69,10 @@ exports.getBookings = async (req, res) => {
     }
 };
 
+// ─── GET ONE ─────────────────────────────────────────────────────────────────
 exports.getBooking = async (req, res) => {
     try {
-        const result = await db.query(
-            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
-             FROM bookings b
-             LEFT JOIN companies c ON b.company_id = c.id
-             LEFT JOIN drivers d ON b.driver_id = d.id
-             LEFT JOIN ambulances a ON b.ambulance_id = a.id
-             WHERE b.id = $1`, 
-            [req.params.id]
-        );
+        const result = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [req.params.id]);
         if (result.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
         res.json(result.rows[0]);
     } catch (err) {
@@ -74,37 +81,97 @@ exports.getBooking = async (req, res) => {
     }
 };
 
+// ─── GET ACTIVE BOOKING FOR DRIVER (reconnect reconciliation) ─────────────────
+// Used by Driver App on socket reconnect to restore trip state
+exports.getActiveBookingForDriver = async (req, res) => {
+    const { driverId } = req.query;
+    if (!driverId) return res.status(400).json({ error: 'driverId query param required' });
+    try {
+        const driverRes = await db.query('SELECT ambulance_id FROM drivers WHERE id = $1', [driverId]);
+        const ambulanceId = driverRes.rowCount > 0 ? driverRes.rows[0].ambulance_id : null;
+
+        const result = await db.query(
+            BOOKING_SELECT + ` WHERE (b.driver_id = $1 OR (b.ambulance_id = $2 AND b.driver_id IS NULL))
+              AND b.status IN ('pending','accepted','dispatched','arrived')
+              ORDER BY b.updated_at DESC LIMIT 1`,
+            [driverId, ambulanceId]
+        );
+        if (result.rowCount === 0) return res.json(null); // No active trip — driver is free
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// ─── CREATE (public) ─────────────────────────────────────────────────────────
 exports.createBooking = async (req, res) => {
-    const { patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id, driver_id } = req.body;
+    const {
+        patient_name, phone, emergency_description, payment_method,
+        patient_lat, patient_lng, company_id, ambulance_id, driver_id
+    } = req.body;
     const id = crypto.randomUUID();
 
     try {
+        // Fallback: if client sends ambulance_id but no driver_id, resolve it
+        let resolvedDriverId = driver_id || null;
+        if (ambulance_id && !resolvedDriverId) {
+            const ambResult = await db.query('SELECT driver_id FROM ambulances WHERE id = $1', [ambulance_id]);
+            if (ambResult.rowCount > 0) {
+                resolvedDriverId = ambResult.rows[0].driver_id || null;
+            }
+        }
+
+        // Smart Dispatch: Ensure driver is actually available
+        if (resolvedDriverId) {
+            const driverStatusRes = await db.query('SELECT status FROM drivers WHERE id = $1', [resolvedDriverId]);
+            if (driverStatusRes.rowCount > 0) {
+                const dStatus = driverStatusRes.rows[0].status;
+                if (dStatus !== 'available') {
+                    // Instantly notify client that driver is busy instead of keeping them hanging
+                    return res.status(400).json({ 
+                        error: 'Driver is currently busy or offline', 
+                        status: 'denied',
+                        reason: `Driver is ${dStatus === 'on_trip' ? 'on another trip' : 'offline'}`
+                    });
+                }
+            }
+        }
+
+        // Auto-cancel any old hanging 'pending' requests for this driver to prevent queue blockage
+        if (resolvedDriverId) {
+            await db.query(
+                `UPDATE bookings SET status = 'cancelled', cancel_reason = 'Superseded by newer request', cancelled_by = 'admin', updated_at = CURRENT_TIMESTAMP
+                 WHERE driver_id = $1 AND status = 'pending'`,
+                [resolvedDriverId]
+            );
+        }
+
         await db.query(
-            `INSERT INTO bookings (id, patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id, driver_id, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')`,
-            [id, patient_name, phone, emergency_description, payment_method, patient_lat, patient_lng, company_id, ambulance_id || null, driver_id || null]
+            `INSERT INTO bookings
+               (id, patient_name, phone, emergency_description, payment_method,
+                patient_lat, patient_lng, company_id, ambulance_id, driver_id, status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')`,
+            [id, patient_name, phone, emergency_description, payment_method,
+             patient_lat, patient_lng, company_id, ambulance_id || null, resolvedDriverId]
         );
 
-        const bookingRes = await db.query(
-            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
-             FROM bookings b
-             LEFT JOIN companies c ON b.company_id = c.id
-             LEFT JOIN drivers d ON b.driver_id = d.id
-             LEFT JOIN ambulances a ON b.ambulance_id = a.id
-             WHERE b.id = $1`, 
-            [id]
-        );
+        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
         const booking = bookingRes.rows[0];
 
-        // Notify admins and drivers via Socket.io
+        // Direct-to-Driver dispatch philosophy:
+        // 1. Notify admin rooms (monitoring only — no action required)
+        // 2. Send directly to the assigned driver's private room
         const io = req.app.get('io');
         if (io) {
             if (booking.company_id) {
                 io.to(`company_dashboard_${booking.company_id}`).emit('new_booking', booking);
             }
             io.to('super_dashboard').emit('new_booking', booking);
-            // Also global for driver app discovery
-            io.emit('new_booking', booking);
+
+            if (booking.driver_id) {
+                io.to(`driver_room_${booking.driver_id}`).emit('new_booking', booking);
+            }
         }
 
         res.status(201).json(booking);
@@ -114,57 +181,103 @@ exports.createBooking = async (req, res) => {
     }
 };
 
+// ─── GENERIC STATUS CHANGE ───────────────────────────────────────────────────
 const changeStatus = async (id, status, res, req, eventName) => {
-    const { ambulance_id, driver_id } = req.body;
+    const { ambulance_id, driver_id, reason, cancelled_by } = req.body;
     try {
         let queryStr = 'UPDATE bookings SET status = $1, updated_at = CURRENT_TIMESTAMP';
         let params = [status];
-        
+
+        if (status === 'cancelled') {
+            queryStr += `, cancelled_at = CURRENT_TIMESTAMP`;
+            if (cancelled_by) {
+                queryStr += `, cancelled_by = $${params.length + 1}`;
+                params.push(cancelled_by);
+            }
+        }
+
         if (ambulance_id) {
             queryStr += `, ambulance_id = $${params.length + 1}`;
             params.push(ambulance_id);
+
+            // Auto-link the driver assigned to this ambulance if none provided
+            const drvRes = await db.query('SELECT id FROM drivers WHERE ambulance_id = $1', [ambulance_id]);
+            if (drvRes.rowCount > 0 && !driver_id) {
+                queryStr += `, driver_id = $${params.length + 1}`;
+                params.push(drvRes.rows[0].id);
+            }
         }
         if (driver_id) {
             queryStr += `, driver_id = $${params.length + 1}`;
             params.push(driver_id);
         }
-        
+        if (reason) {
+            queryStr += `, cancel_reason = $${params.length + 1}`;
+            params.push(reason);
+        }
+
         params.push(id);
         queryStr += ` WHERE id = $${params.length}`;
-        
+
         await db.query(queryStr, params);
-        
-        const bookingRes = await db.query(
-            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, d.phone as driver_phone, a.ambulance_number 
-             FROM bookings b
-             LEFT JOIN companies c ON b.company_id = c.id
-             LEFT JOIN drivers d ON b.driver_id = d.id
-             LEFT JOIN ambulances a ON b.ambulance_id = a.id
-             WHERE b.id = $1`, 
-            [id]
-        );
+
+        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
         if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
-        
+
         const booking = bookingRes.rows[0];
-        
-        // Update driver and ambulance status appropriately
+
+        // Sync ambulance and driver status
+        const io = req.app.get('io');
         if (status === 'dispatched' || status === 'accepted') {
             if (booking.ambulance_id) await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['busy', booking.ambulance_id]);
-            if (booking.driver_id) await db.query('UPDATE drivers SET status = $1 WHERE id = $2', ['on_trip', booking.driver_id]);
+            if (booking.driver_id) {
+                await db.query('UPDATE drivers SET status = $1 WHERE id = $2', ['on_trip', booking.driver_id]);
+                if (io) {
+                    const drvStatus = { driver_id: booking.driver_id, status: 'on_trip', ambulance_id: booking.ambulance_id, company_id: booking.company_id };
+                    io.to(`company_dashboard_${booking.company_id}`).emit('driver_status_update', drvStatus);
+                    io.to('super_dashboard').emit('driver_status_update', drvStatus);
+                }
+            }
         } else if (status === 'completed' || status === 'cancelled') {
             if (booking.ambulance_id) await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', ['available', booking.ambulance_id]);
-            if (booking.driver_id) await db.query('UPDATE drivers SET status = $1 WHERE id = $2', ['available', booking.driver_id]);
+            if (booking.driver_id) {
+                await db.query('UPDATE drivers SET status = $1 WHERE id = $2', ['available', booking.driver_id]);
+                if (io) {
+                    const drvStatus = { driver_id: booking.driver_id, status: 'available', ambulance_id: booking.ambulance_id, company_id: booking.company_id };
+                    io.to(`company_dashboard_${booking.company_id}`).emit('driver_status_update', drvStatus);
+                    io.to('super_dashboard').emit('driver_status_update', drvStatus);
+                }
+            }
         }
 
-        if (eventName) {
-            broadcastBookingUpdate(req, id, eventName, booking);
+        if (eventName) broadcastBookingUpdate(req, id, eventName, booking);
+
+        // When driver accepts/dispatches, push confirmed booking to driver room explicitly
+        if (status === 'accepted' || status === 'dispatched') {
+            const io = req.app.get('io');
+            if (io && booking.driver_id) {
+                io.to(`driver_room_${booking.driver_id}`).emit('booking_status_update', booking);
+            }
         }
 
-        // Also broadcast globally if it's a new assignment so the driver app sees it
-        if (status === 'accepted') {
+        // On cancellation: emit booking_cancelled with full context to ALL rooms including driver
+        if (status === 'cancelled') {
             const io = req.app.get('io');
             if (io) {
-                io.emit('new_booking', booking);
+                const cancelPayload = {
+                    ...booking,
+                    cancelled_by: cancelled_by || booking.cancelled_by,
+                    cancel_reason: reason || booking.cancel_reason,
+                };
+                io.to(`room:booking_${id}`).emit('booking_cancelled', cancelPayload);
+                if (booking.driver_id) {
+                    io.to(`driver_room_${booking.driver_id}`).emit('booking_cancelled', cancelPayload);
+                }
+                io.to('admin_monitor').emit('booking_cancelled', cancelPayload);
+                if (booking.company_id) {
+                    io.to(`company_dashboard_${booking.company_id}`).emit('booking_cancelled', cancelPayload);
+                }
+                io.to('super_dashboard').emit('booking_cancelled', cancelPayload);
             }
         }
 
@@ -175,26 +288,24 @@ const changeStatus = async (id, status, res, req, eventName) => {
     }
 };
 
+// ─── INITIAL ASSIGN (driver linked before accept) ────────────────────────────
 exports.assignBooking = async (req, res) => {
     const { id } = req.params;
     const { ambulance_id, driver_id } = req.body;
     try {
-        await db.query('UPDATE bookings SET ambulance_id = $1, driver_id = $2 WHERE id = $3', [ambulance_id, driver_id, id]);
-        
-        const bookingRes = await db.query(
-            `SELECT b.*, c.name as company_name, d.full_name as driver_name, d.driver_id as driver_uid, a.ambulance_number 
-             FROM bookings b
-             LEFT JOIN companies c ON b.company_id = c.id
-             LEFT JOIN drivers d ON b.driver_id = d.id
-             LEFT JOIN ambulances a ON b.ambulance_id = a.id
-             WHERE b.id = $1`, 
-            [id]
+        await db.query(
+            'UPDATE bookings SET ambulance_id = $1, driver_id = $2 WHERE id = $3',
+            [ambulance_id, driver_id, id]
         );
+
+        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
         if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
-        
+
         const booking = bookingRes.rows[0];
         const io = req.app.get('io');
-        if (io) io.emit('booking_assigned', booking);
+        if (io && booking.driver_id) {
+            io.to(`driver_room_${booking.driver_id}`).emit('new_booking', booking);
+        }
         res.json(booking);
     } catch (err) {
         console.error(err);
@@ -202,21 +313,54 @@ exports.assignBooking = async (req, res) => {
     }
 };
 
-exports.acceptBooking = async (req, res) => changeStatus(req.params.id, 'accepted', res, req, 'booking_accepted');
-exports.dispatchBooking = async (req, res) => changeStatus(req.params.id, 'dispatched', res, req, 'ambulance_dispatched');
-exports.arriveBooking = async (req, res) => changeStatus(req.params.id, 'arrived', res, req, 'driver_arrived');
-exports.completeBooking = async (req, res) => changeStatus(req.params.id, 'completed', res, req, 'trip_completed');
-exports.cancelBooking = async (req, res) => changeStatus(req.params.id, 'cancelled', res, req, 'booking_cancelled');
+// ─── ADMIN FALLBACK REASSIGN ──────────────────────────────────────────────────
+// Used ONLY when driver denied or timed out — spec says admin can step in as fallback
+exports.reassignBooking = async (req, res) => {
+    const { id } = req.params;
+    const { ambulance_id, driver_id } = req.body;
+    try {
+        await db.query(
+            `UPDATE bookings
+             SET ambulance_id = $1, driver_id = $2, status = 'pending', updated_at = CURRENT_TIMESTAMP
+             WHERE id = $3`,
+            [ambulance_id, driver_id, id]
+        );
 
+        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
+        if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
+
+        const booking = bookingRes.rows[0];
+        const io = req.app.get('io');
+        if (io) {
+            // Push to the newly assigned driver's private room
+            if (booking.driver_id) io.to(`driver_room_${booking.driver_id}`).emit('new_booking', booking);
+            // Notify admin rooms
+            if (booking.company_id) io.to(`company_dashboard_${booking.company_id}`).emit('booking_status_update', booking);
+            io.to('super_dashboard').emit('booking_status_update', booking);
+        }
+        res.json(booking);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// ─── DRIVER DENY ──────────────────────────────────────────────────────────────
 exports.denyBooking = async (req, res) => {
     const { id } = req.params;
     try {
-        await db.query('UPDATE bookings SET ambulance_id = NULL, driver_id = NULL WHERE id = $1', [id]);
-        
-        const bookingRes = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        await db.query(
+            `UPDATE bookings
+             SET status = 'denied', ambulance_id = NULL, driver_id = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [id]
+        );
+
+        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
         if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
-        
+
         const booking = bookingRes.rows[0];
+        // Notify admin (monitoring / fallback reassignment)
         broadcastBookingUpdate(req, id, 'driver_denied', booking);
         res.json(booking);
     } catch (err) {
@@ -224,3 +368,34 @@ exports.denyBooking = async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 };
+
+// ─── DRIVER TIMEOUT (30s countdown expired on driver app) ────────────────────
+exports.timeoutBooking = async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query(
+            `UPDATE bookings
+             SET status = 'timed_out', ambulance_id = NULL, driver_id = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [id]
+        );
+
+        const bookingRes = await db.query(BOOKING_SELECT + ' WHERE b.id = $1', [id]);
+        if (bookingRes.rowCount === 0) return res.status(404).json({ error: 'Booking not found' });
+
+        const booking = bookingRes.rows[0];
+        // Alert admin — they may manually reassign as fallback
+        broadcastBookingUpdate(req, id, 'booking_timed_out', booking);
+        res.json(booking);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// ─── STATUS SHORTCUTS ─────────────────────────────────────────────────────────
+exports.acceptBooking  = (req, res) => changeStatus(req.params.id, 'accepted',  res, req, 'driver_accepted');
+exports.dispatchBooking = (req, res) => changeStatus(req.params.id, 'dispatched', res, req, 'ambulance_dispatched');
+exports.arriveBooking  = (req, res) => changeStatus(req.params.id, 'arrived',   res, req, 'driver_arrived');
+exports.completeBooking = (req, res) => changeStatus(req.params.id, 'completed', res, req, 'trip_completed');
+exports.cancelBooking  = (req, res) => changeStatus(req.params.id, 'cancelled', res, req, 'booking_cancelled');

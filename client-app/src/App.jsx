@@ -11,7 +11,7 @@ import TrackingPage from './pages/TrackingPage';
 import FeedbackModal from './pages/FeedbackPage';
 import LandingPage from './pages/LandingPage';
 import PaymentStatusPage from './pages/PaymentStatus';
-import { createBooking, getNearbyAmbulances, initiatePayment, cancelBooking } from './services/api';
+import { createBooking, getNearbyAmbulances, initiatePayment, cancelBooking, checkBookingStatus } from './services/api';
 import { socketService } from './services/socket';
 import { useBookingStore } from './store/useBookingStore';
 import { useLocationStore } from './store/useLocationStore';
@@ -90,7 +90,7 @@ function EmergencyApp() {
         },
         (error) => {
           console.warn("Geolocation failed or blocked, using default center.", error);
-          const fallback = { lat: 0.3476, lng: 32.5825 }; // Kampala, Uganda as regional fallback
+          const fallback = { lat: 0.3476, lng: 32.5825 }; 
           setUserLocation(fallback);
           setLocationLoading(false);
           fetchAmbulances(fallback);
@@ -103,44 +103,92 @@ function EmergencyApp() {
         setLocationLoading(false);
         fetchAmbulances(fallback);
     }
-  }, [setUserLocation, setNearbyAmbulances]);
 
-  // 2. Socket Connection for Tracking
+    // Listen for real-time fleet updates to refresh the list automatically
+    socketService.connect();
+    const onFleetUpdate = () => {
+        const latestLocation = useLocationStore.getState().userLocation;
+        if (latestLocation) fetchAmbulances(latestLocation);
+        else {
+             // If location not yet set, use fallback
+             fetchAmbulances({ lat: 0.3476, lng: 32.5825 });
+        }
+    };
+    socketService.onAmbulanceUpdate(onFleetUpdate);
+
+    return () => {
+        socketService.offAmbulanceUpdate(onFleetUpdate);
+    };
+  }, [setUserLocation, setNearbyAmbulances]); // Removed userLocation to prevent infinite loop
+
+  // 2. Socket Connection & Status Sync for Tracking
   useEffect(() => {
     if (activeBookingId) {
+       // Sync initial status on mount/restore
+       const syncStatus = async () => {
+           try {
+               const data = await checkBookingStatus(activeBookingId);
+               if (data.status === 'completed') {
+                   completeTrip();
+               } else if (data.status === 'cancelled') {
+                   clearBooking();
+               } else {
+                   setActiveBooking(activeBookingId, data.status);
+                   if (data.ambulance_id) setSelectedAmbulance(data);
+               }
+           } catch (e) {
+               console.error("Failed to sync booking status", e);
+           }
+       };
+       syncStatus();
+
        socketService.connect();
        socketService.joinBookingRoom(activeBookingId);
        
-       socketService.onBookingUpdate((data) => {
-           if (data.status === 'completed') {
-                completeTrip();
-           } else {
-                setActiveBooking(activeBookingId, data.status);
-                // Sync ambulance/driver details if they were just assigned/updated
-                if (data.company_name) {
-                    setSelectedAmbulance(data);
+        const handleBookingSync = (data) => {
+            if (data.id === activeBookingId) {
+                if (data.status === 'completed') {
+                    completeTrip();
+                } else if (data.status === 'cancelled' || data.status === 'denied') {
+                    const msg = data.status === 'denied' 
+                        ? 'Your request was declined by the assigned driver. Please try requesting another unit.'
+                        : `Booking #${data.id} has been cancelled by the operator. Reason: ${data.cancel_reason || 'Administrative action'}`;
+                    alert(msg);
+                    clearBooking();
+                    socketService.leaveBookingRoom();
+                } else {
+                    setActiveBooking(activeBookingId, data.status);
+                    if (data.company_name || data.driver_name) {
+                        setSelectedAmbulance(data);
+                    }
                 }
-           }
-       });
+            }
+        };
 
-       socketService.onDriverLocation((data) => {
+        const handleDriverLocation = (data) => {
            console.log("Real-time driver movement received:", data);
            useBookingStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng });
-       });
+        };
 
-       // 3. Share Patient Location in Real-time
-       const locationInterval = setInterval(() => {
-           if (userLocation) {
-               socketService.emitPatientLocation(activeBookingId, userLocation);
-           }
-       }, 5000); // Every 5s
+        socketService.onBookingUpdate(handleBookingSync);
+        socketService.onDriverLocation(handleDriverLocation);
 
-       return () => {
-           clearInterval(locationInterval);
-           // socketService.disconnect();
-       };
+        return () => {
+            socketService.offBookingUpdate(handleBookingSync);
+            socketService.offDriverLocation(handleDriverLocation);
+        };
     }
-  }, [activeBookingId, setActiveBooking, completeTrip, userLocation]);
+  }, [activeBookingId, setActiveBooking, completeTrip]); // Stable socket lifecycle
+
+  // 3. Independent Real-time Location Sharing
+  useEffect(() => {
+    if (activeBookingId && userLocation) {
+        const interval = setInterval(() => {
+            socketService.emitPatientLocation(activeBookingId, userLocation);
+        }, 5000);
+        return () => clearInterval(interval);
+    }
+  }, [activeBookingId, userLocation]);
 
   const handleBookingSubmit = async (formData) => {
     try {
@@ -152,7 +200,8 @@ function EmergencyApp() {
             patient_lat: userLocation.lat,
             patient_lng: userLocation.lng,
             ambulance_id: selectedAmbulance?.ambulance_id,
-            company_id: selectedAmbulance?.company_id
+            company_id: selectedAmbulance?.company_id,
+            driver_id: selectedAmbulance?.driver_id
         };
         const response = await createBooking(payload);
         
@@ -172,15 +221,19 @@ function EmergencyApp() {
 
     } catch (err) {
         console.error(err);
-        alert("Emergency Request Failed. Please try calling emergency services directly.");
+        if (err.response?.data?.error) {
+            alert(err.response.data.reason || err.response.data.error);
+        } else {
+            alert("Emergency Request Failed. Please try calling emergency services directly.");
+        }
     }
   };
 
   // --- RENDER LOGIC ---
 
 
-  // If there is an active booking, show the Tracking Page
-  if (activeBookingId) {
+  // If there is an active booking, show the Tracking Page (unless trip is completed)
+  if (activeBookingId && !isTripCompleted) {
     return <TrackingPage onCancel={async () => {
         try {
             await cancelBooking(activeBookingId);

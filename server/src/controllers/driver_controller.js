@@ -89,7 +89,87 @@ exports.updateDriver = async (req, res) => {
              }
         }
 
+        // If status changed by admin, sync ambulance
+        if (status && updated.ambulance_id) {
+            const ambStatus = status === 'available' ? 'available' : (status === 'offline' ? 'offline' : 'busy');
+            await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', [ambStatus, updated.ambulance_id]);
+        }
+
+        // Broadcast to dashboards
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`company_dashboard_${company_id}`).emit('booking_status_update', { type: 'driver_update' });
+            io.to('super_dashboard').emit('booking_status_update', { type: 'driver_update' });
+        }
+
         res.json(updated);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.updateSelfStatus = async (req, res) => {
+    const { status } = req.body;
+    const { id, company_id, role } = req.user;
+
+    if (role !== 'driver') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        await db.query('UPDATE drivers SET status = $1 WHERE id = $2', [status, id]);
+        
+        const driverRes = await db.query('SELECT ambulance_id FROM drivers WHERE id = $1', [id]);
+        const driver = driverRes.rows[0];
+        
+        if (driver.ambulance_id) {
+            const ambStatus = status === 'available' ? 'available' : 'offline';
+            await db.query('UPDATE ambulances SET status = $1 WHERE id = $2', [ambStatus, driver.ambulance_id]);
+            
+            // Fetch updated ambulance to broadcast
+            const ambRes = await db.query('SELECT * FROM ambulances WHERE id = $1', [driver.ambulance_id]);
+            if (ambRes.rowCount > 0) {
+                const updatedAmb = ambRes.rows[0];
+                const io = req.app.get('io');
+                if (io) {
+                    io.to(`company_dashboard_${company_id}`).emit('ambulance_status_changed', updatedAmb);
+                    io.emit('ambulance_status_changed', updatedAmb);
+                }
+            }
+        }
+
+        // Broadcast to dashboards so admins see the refresh
+        const io = req.app.get('io');
+        if (io) {
+            const eventPayload = { 
+                type: 'driver_update', 
+                driver_id: id, 
+                status,
+                company_id 
+            };
+            // driver_status_changed for legacy listeners
+            io.to(`company_dashboard_${company_id}`).emit('driver_status_changed', eventPayload);
+            io.to('super_dashboard').emit('driver_status_changed', eventPayload);
+            // driver_status_update — canonical v3 spec event for KPI counters & fleet map
+            io.to(`company_dashboard_${company_id}`).emit('driver_status_update', eventPayload);
+            io.to('super_dashboard').emit('driver_status_update', eventPayload);
+            io.to('admin_monitor').emit('driver_status_update', eventPayload);
+        }
+
+        res.json({ success: true, status });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+exports.verifyDriverId = async (req, res) => {
+    const { driver_id } = req.params;
+    try {
+        const result = await db.query('SELECT full_name FROM drivers WHERE LOWER(TRIM(driver_id)) = LOWER(TRIM($1))', [driver_id]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Driver not found' });
+        res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });

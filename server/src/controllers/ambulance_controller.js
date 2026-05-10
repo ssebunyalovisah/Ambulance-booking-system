@@ -108,6 +108,9 @@ exports.updateAmbulanceStatus = async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.to(`company_dashboard_${company_id}`).emit('ambulance_status_changed', updated);
+            io.to('super_dashboard').emit('ambulance_status_changed', updated);
+            // Also emit globally so patient apps can refresh nearby list
+            io.emit('ambulance_status_changed', updated);
         }
 
         res.json(updated);

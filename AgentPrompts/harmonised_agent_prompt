@@ -1,4 +1,4 @@
-# Unified Ambulance Emergency System — Complete Agent Prompt
+# Unified Ambulance Emergency System — Complete Agent Prompt (v3)
 
 > This is the single source of truth for all three surfaces: Client App, Admin Dashboard, and Driver App.
 > All developers, agents, and code generators must follow this specification exactly.
@@ -12,14 +12,119 @@ An Ambulance Emergency Booking System with three interconnected surfaces:
 | Surface | Users | Purpose |
 |---|---|---|
 | Client App | Patients (public) | Request ambulances, choose company, track in real-time |
-| Admin Dashboard | Company Admins / Super Admins | Manage ambulances, drivers, bookings, payments |
-| Driver App | Registered drivers only | Receive requests, accept/deny, navigate to patient |
+| Admin Dashboard | Company Admins / Super Admins | Monitor drivers, view live status, manage ambulances, evaluate performance |
+| Driver App | Registered drivers only | Receive requests directly, accept/deny, navigate to patient, notify on completion |
 
 All three surfaces share a **single backend**, a **single database**, and communicate via **REST APIs + Socket.io real-time events**.
 
 **Database:** SQLite3 (development) → PostgreSQL or MySQL (production)
 **Maps:** React-Leaflet + OpenStreetMap (no API key required — used across all surfaces)
 **Real-time:** Socket.io (primary), Firebase (optional fallback for location streams)
+
+---
+
+## Core Dispatch Philosophy
+
+> **Requests go DIRECTLY to the driver. The admin does NOT sit in the approval chain.**
+
+- The patient selects an ambulance → the request is sent **directly to the assigned driver**.
+- The driver **accepts or denies** the booking — no admin approval gate.
+- The admin **monitors only**: they see all booking status changes in real-time.
+- After a trip is completed, the driver notifies the system (`trip_completed`), which the admin sees instantly.
+- Admin uses the dashboard to **evaluate driver performance**: orders taken, earnings, response rates, ratings.
+
+---
+
+## ⚡ STATUS SYNCHRONIZATION — CRITICAL RULE
+
+> **The booking status in the database is the single source of truth. Every status change — from any surface — must instantly propagate to ALL THREE surfaces simultaneously.**
+
+### The Rule
+A booking is only considered **active** when **both the driver AND the client are engaged**. The moment either party cancels or disconnects from the trip, all surfaces must immediately reflect that change.
+
+### Status Change Propagation Flow
+
+Every time a booking status changes (for any reason, from any surface):
+
+1. The backend updates the status in the database immediately.
+2. The backend emits `booking_status_update` to **all three rooms**:
+   - `room:booking_{bookingId}` — the shared booking room (client + admin)
+   - `driver_room_{driverId}` — the assigned driver's private room
+   - `admin_monitor` — the admin's live monitor room
+3. **All three frontends listen for `booking_status_update`** and update their UI immediately — no page refresh, no polling.
+
+### What Each Surface Does On Status Update
+
+| Surface | On any `booking_status_update` received |
+|---|---|
+| **Client App** | Updates tracking page status banner, shows cancellation screen if cancelled |
+| **Driver App** | Clears the active trip if cancelled/completed, returns driver to home screen |
+| **Admin Dashboard** | Updates the row in Live Bookings Monitor in real-time, updates KPI counters |
+
+### Cancellation Rules — Both Directions
+
+**If the DRIVER cancels:**
+- `PATCH /bookings/:id/cancel` called with `cancelled_by: "driver"` and `cancel_reason`
+- Backend sets `status: cancelled`, emits `booking_status_update` + `booking_cancelled` to:
+  - Client App → shows "Your ambulance has cancelled. Please rebook." screen with a **Rebook** button
+  - Admin Dashboard → booking row updates to `CANCELLED`, admin is notified with who cancelled and why
+- Driver app returns to home/available screen
+
+**If the CLIENT cancels:**
+- Client emits `cancel_booking` or calls `PATCH /bookings/:id/cancel` with `cancelled_by: "client"`
+- Backend sets `status: cancelled`, emits `booking_status_update` + `booking_cancelled` to:
+  - Driver App → active trip screen dismissed, driver notified "Patient cancelled the request", driver status returns to `available`
+  - Admin Dashboard → booking row updates to `CANCELLED`, admin sees who cancelled
+
+**In both cases:**
+- The ambulance/driver status returns to `available` in the database
+- Admin Live Monitor reflects `CANCELLED` immediately — never stays stuck on a previous status
+- The `cancelled_by` field and `cancel_reason` are stored and visible to admin
+
+### Status Is Never Stale
+
+- The Driver App **must not** show a pending or active request if the booking has been cancelled or completed in the database.
+- The Client App **must not** show a tracking screen for a cancelled or completed booking.
+- The Admin Dashboard **must not** show a booking as active if its status in the database is `cancelled`, `completed`, `denied`, or `timed_out`.
+- On every app load / socket reconnect, each surface **fetches the latest booking status from the server** and reconciles its local state before rendering.
+
+---
+
+## Booking Status Lifecycle
+
+```
+pending
+  ↓ (driver accepts)
+accepted
+  ↓ (admin clicks "Mark Dispatched" OR driver sets off)
+dispatched
+  ↓ (admin clicks "Mark Arrived" OR driver marks arrived)
+arrived
+  ↓ (driver completes trip)
+completed
+
+At any point before completion:
+  → cancelled  (by driver or client — immediately propagated to all surfaces)
+
+If driver denies:
+  → denied     (admin notified, may reassign → back to pending)
+
+If driver doesn't respond:
+  → timed_out  (admin notified, may reassign → back to pending)
+```
+
+**Every status transition — whether triggered by admin, driver, or client — runs through the same backend broadcaster and propagates to all three surfaces instantly.**
+
+---
+
+## cancelled_by and cancel_reason Fields
+
+The `bookings` table stores:
+- `cancelled_by`: `"driver"` | `"client"` | `"admin"`
+- `cancel_reason`: free text — required when cancelling
+- `cancelled_at`: timestamp
+
+These are visible on the Admin Live Bookings Monitor in a tooltip or expanded row.
 
 ---
 
@@ -30,61 +135,41 @@ All three surfaces share a **single backend**, a **single database**, and commun
 There is **one single login page** shared by both admins and drivers.
 
 - Admins log in with **Email + Password**
-- Drivers log in with **Driver Name + Driver ID** (no email required)
+- Drivers log in with **Driver ID + Driver Name**
+  - **Smart Login Feature:** As the driver types their Driver ID, the system performs a real-time lookup via `GET /api/drivers/verify/:id` and auto-prefills their Full Name with a "Verified" badge.
 
 After credentials are verified, the backend returns a `role` field:
 - `super_admin` → redirect to Admin Dashboard
 - `admin` → redirect to Admin Dashboard
 - `driver` → redirect to Driver Dashboard
 
-The frontend detects the role from the JWT payload and routes automatically. No manual navigation required.
-
 ---
 
 ### Admin Registration (Company Onboarding)
 
-New companies register through a **"Register New Company"** form with:
-
-- Full Name
-- Company Name
-- Email Address
-- Password + Confirm Password
+- Full Name, Company Name, Email Address, Password + Confirm Password
 - Role Assignment: `Super Admin` | `Admin`
 
 ---
 
 ### Driver Registration (Admin-Side Only)
 
-**Drivers cannot self-register.** Only an admin can create a driver account from inside the Admin Dashboard.
+**Drivers cannot self-register.** Only an admin can create a driver account.
 
-When an admin registers a driver, the system creates:
-
-- Full Name
-- Phone Number
+- Full Name, Phone Number
 - Auto-generated unique **Driver ID** (e.g. `DRV-00123`)
-- Assigned Ambulance
-- Driver Photo (optional)
-- Login credentials: **Driver Name + Driver ID** (no email needed)
-
-The admin shares the Driver Name and Driver ID with the driver. These are the only credentials the driver needs to log in.
+- Assigned Ambulance, Driver Photo (optional)
+- Login credentials: **Driver Name + Driver ID**
 
 ---
 
 ### Shared Login Page Fields
 
-**For Admins:**
-- Email Address
-- Password
-- Remember Me checkbox → persistent session (30 days via httpOnly cookie or JWT with extended expiry)
-- Forgot Password / Reset Password link
-- Session timeout with auto-logout after inactivity
+**For Admins:** Email, Password, Remember Me, Forgot Password
 
-**For Drivers:**
-- Driver Name
-- Driver ID
-- Remember Me checkbox
+**For Drivers:** Driver Name, Driver ID, Remember Me
 
-The login form detects which credential type is being entered and routes to the correct auth endpoint:
+Form auto-detects credential type:
 - Email format → `POST /auth/login/admin`
 - Driver ID format → `POST /auth/login/driver`
 
@@ -92,11 +177,10 @@ The login form detects which credential type is being entered and routes to the 
 
 ### Auth Architecture
 
-- JWT authentication (short-lived access tokens + long-lived refresh tokens)
-- Role-based access control (RBAC): `super_admin`, `admin`, `driver`
-- Refresh token rotation
-- Secure httpOnly cookies for Remember Me
-- Protected routes per role on the frontend — a driver cannot access admin routes and vice versa
+- JWT (short-lived access tokens + long-lived refresh tokens)
+- RBAC: `super_admin`, `admin`, `driver`
+- Refresh token rotation, secure httpOnly cookies for Remember Me
+- Protected routes per role — driver cannot access admin routes and vice versa
 
 ---
 
@@ -106,16 +190,14 @@ The login form detects which credential type is being entered and routes to the 
 
 - No login required. Fully public.
 - Optimized for emergency speed — minimum friction.
-- Built with React.
-- Maps: React-Leaflet + OpenStreetMap.
+- Built with React. Maps: React-Leaflet + OpenStreetMap.
 
 ---
 
 ### Page 1 — Landing Page
 
 - Hero background: `Ambulance.jpg`
-- Clear CTA button: **"Request Ambulance Now"**
-- Brief system description
+- CTA button: **"Request Ambulance Now"**
 
 ---
 
@@ -124,59 +206,56 @@ The login form detects which credential type is being entered and routes to the 
 - Auto-detect patient GPS via browser Geolocation API
 - Display patient location on Leaflet map
 - Show nearby **available ambulances as markers** grouped by company
-- Each marker popup shows: Company Name, Driver Name, Driver ID, Estimated Arrival Time
+- Each marker popup: Company Name, Driver Name, Driver ID, Estimated Arrival Time
 
 ---
 
 ### Page 3 — Ambulance & Company Selection
 
-Patients see a list of **ambulance companies operating nearby**. Each company card shows:
+Each company card shows: Company Name/logo, number of available units, expandable list of ambulances.
 
-- Company Name and logo (if available)
-- Number of available units
-- Expandable list of available ambulances under that company
-
-Each ambulance card under a company shows:
-- **Company Name** (never a generic label)
+Each ambulance card shows:
+- **Company Name** (never generic)
 - **Driver Full Name + Driver ID**
-- Ambulance Number / Unit
-- Estimated arrival time
-- Distance from patient
-- Price estimate
-
-Patient selects a specific ambulance unit from a specific company to proceed.
+- Ambulance Number / Unit, ETA, Distance, Price estimate
 
 ---
 
 ### Page 4 — Booking Popup Form
 
-Appears after ambulance selection:
-
-- Patient Name
-- Phone Number
-- Emergency Description (required)
-- Payment Method (Cash / Mobile Money / Card)
+- Patient Name, Phone Number, Emergency Description (required), Payment Method
 
 On submit:
-- Booking record created in database with `status: pending`
-- Request sent in real-time via Socket.io to the selected company's admin AND the assigned driver
-- Socket event emitted: `new_booking` → room: `room:booking_{bookingId}`
+- Booking created with `status: pending`
+- Request sent directly to `driver_room_{driverId}` via Socket.io
+- Admin receives `new_booking` for monitoring only
 
 ---
 
 ### Page 5 — Real-Time Tracking Page
 
-After booking is accepted and ambulance dispatched:
+After driver accepts:
 
-- Live Leaflet map showing:
-  - Ambulance marker updating in real-time
-  - Patient marker (live GPS)
-  - Route line between them
-- Estimated arrival time (live countdown)
-- Distance remaining
+- Live Leaflet map: ambulance marker (live), patient marker (live), route line
+- Estimated arrival countdown, distance remaining
+- **Persistence:** Booking ID + state persisted via `Zustand/persist`. App restores tracking on reopen and syncs latest status from server.
 
-**Dispatch Info Panel** — must always show (never generic labels):
+**Status Banner** — always visible at top of tracking page, updates in real-time:
 
+```
+Status: [PENDING | ACCEPTED | DISPATCHED | ARRIVED | COMPLETED | CANCELLED]
+```
+
+**Cancellation Handling on Client:**
+- If `booking_cancelled` received (driver cancelled): dismiss map, show full-screen notice:
+  ```
+  ⚠️  Your ambulance has cancelled this trip.
+      Reason: [cancel_reason]
+      [Rebook Now]   [Go Home]
+  ```
+- If client cancels: show confirmation dialog → calls cancel API → tracking screen dismissed
+
+**Dispatch Info Panel:**
 ```
 🚑  [Company Name]
     Driver: [Driver Full Name]  |  ID: [Driver ID]
@@ -184,38 +263,35 @@ After booking is accepted and ambulance dispatched:
     📞 Call Driver     📞 Call Company
 ```
 
-- **Call Driver button** → `tel:[driver_phone]` — opens native phone dialer
-- **Call Company button** → `tel:[company_phone]` — opens native phone dialer
+- **Cancel Trip button** visible to client while status is `pending` or `accepted`
 
-Real-time via Socket.io events:
-- Listen: `ambulance_location_update` → update ambulance marker
-- Emit: `patient_location_update` every 5 seconds → driver and admin see patient moving
+Real-time events:
+- Listen: `ambulance_location_update`, `booking_status_update`, `booking_cancelled`
+- Emit: `patient_location_update` every 5 seconds
 
 ---
 
 ### Page 6 — Ratings & Feedback Page
 
-After trip is marked complete by driver:
-
-- Star rating (1–5)
-- Written feedback field
+After `trip_completed` received:
+- Star rating (1–5), written feedback
 - Submit → stored in database, visible to admin
 
 ---
 
 ## 3. Admin Dashboard
 
+> **The admin's role is monitoring and evaluation — not dispatching or approving.**
+> Admin is the **passive observer** of real-time status across all bookings. Status flows from driver and client actions — admin sees it all instantly.
+
 ### Pages
 
-1. Login Page (shared with drivers — smart redirect by role)
+1. Login Page (shared)
 2. Register New Company Page
-3. Dashboard Overview / Home
-   - Full-page background: `ambulance.jpg`
-   - KPI cards: Total Bookings, Active Ambulances, Revenue, Avg Response Time
-   - Quick-access widgets
+3. **Dashboard Overview / Dispatch Command Center** — live fleet status, KPIs, map, incoming requests
 4. Ambulance Management Page
 5. Driver Management Page
-6. Booking Requests Page
+6. **Live Bookings Monitor** — real-time status of all bookings
 7. Real-Time Tracking Map
 8. Payment Management Page
 9. Patient Records Page
@@ -224,120 +300,271 @@ After trip is marked complete by driver:
 
 ---
 
+### Dashboard Overview — Dispatch Command Center
+
+> This is the **first screen** the admin sees after login. It must reflect live system state at all times. Every number, every marker, every incoming request card is driven by real-time Socket.io events and never shows stale data.
+
+**Page header:**
+```
+System Live  •  Dispatch Command Center
+Monitor live fleet status, respond to emergencies, and coordinate dispatch operations.
+[Live Clock: HH:MM:SS AM/PM · Day, Date]
+```
+
+The clock ticks every second. "System Live" indicator is a pulsing green dot — turns red if socket connection is lost.
+
+---
+
+#### KPI Counter Row — 4 Cards (all live, all real-time)
+
+| Card | Label | Value Source | Updates When |
+|---|---|---|---|
+| Ready | Drivers/ambulances with status `available` | `drivers` table | Driver goes online/offline, trip completes/cancels |
+| Active | Bookings with status `accepted` or `dispatched` | `bookings` table | Driver accepts, trip completes, trip cancels |
+| On Mission | Bookings with status `arrived` | `bookings` table | Driver marks arrived, trip completes |
+| Pending Requests | Bookings with status `pending` | `bookings` table | New booking submitted, driver accepts/denies/times out |
+
+**All four counters listen to `booking_status_update` and `driver_status_update` Socket.io events and re-compute their values instantly.**
+
+On page load: fetch current counts from:
+- `GET /drivers?status=available` → Ready count
+- `GET /bookings?status=accepted,dispatched` → Active count
+- `GET /bookings?status=arrived` → On Mission count
+- `GET /bookings?status=pending` → Pending count
+
+Do NOT hardcode zeros. Do NOT wait for the next event to populate — fetch on mount, then keep live via Socket.io.
+
+---
+
+#### Active Emergencies Panel
+
+```
+Active Emergencies
+[N]
+✓ All clear        ← shown only when N = 0
+[Emergency card]   ← shown when N > 0
+```
+
+- Count = bookings with status `accepted`, `dispatched`, or `arrived`
+- Updates live on `booking_status_update`
+- When count > 0: show compact cards per active booking (Patient Name, Driver, Status badge, ETA)
+- When count = 0: show "✓ All clear"
+
+---
+
+#### Available Units Panel
+
+```
+Available Units
+[N]
+Ready to dispatch
+```
+
+- Count = drivers with status `available` (only drivers belonging to this admin's company)
+- Updates live on `driver_status_update` events
+- When 0: show "No units available"
+
+---
+
+#### On Mission Panel
+
+```
+On Mission
+[N]
+Currently responding
+```
+
+- Count = bookings with status `arrived` for this company
+- Updates live on `booking_status_update`
+
+---
+
+#### Pending Requests Panel
+
+```
+Pending Requests
+[N]
+No pending   ← when 0
+```
+
+- Count = bookings with status `pending` for this company
+- Updates live on `booking_status_update` (`new_booking` increments, `driver_accepted`/`driver_denied`/`timed_out` decrements)
+
+---
+
+#### Live Fleet Map
+
+- Leaflet + OpenStreetMap, full-width panel
+- Shows **all** drivers for this company as markers, color-coded:
+  - 🟢 Green marker = `available`
+  - 🔴 Red marker = `on_trip` (accepted/dispatched/arrived)
+  - ⚫ Grey marker = `offline`
+- Shows patient markers for all active bookings (status = accepted/dispatched/arrived)
+- Marker positions update live via `ambulance_location_update` events
+- Map subtitle: **"N units tracked"** — N = total drivers currently with a known GPS position
+- Clicking a driver marker shows popup: Driver Name, Driver ID, Ambulance Unit, current status
+- Clicking a patient marker shows popup: Patient Name, Booking status, Assigned driver
+- If no GPS data has been received yet for a driver, do NOT render their marker (no (0,0) or placeholder pins)
+
+---
+
+#### Incoming Requests Panel
+
+```
+Incoming Requests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Request card]  ← appears instantly on new_booking event
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Empty state (when no pending bookings):
+  "No pending requests"
+  "New emergency calls will appear here instantly"
+  "Listening for emergency calls..."  ← with pulsing animation
+```
+
+- On page load: fetch `GET /bookings?status=pending` → populate with any existing pending bookings
+- Listen to `new_booking` Socket.io event → **immediately prepend** a new request card to the top of the list (no refresh)
+- Listen to `booking_status_update` → **remove** the card from this panel if its status changes away from `pending` (driver accepted, denied, timed out, or admin reassigned)
+- Each request card shows:
+  - Patient Name + Phone
+  - Emergency Description
+  - Time submitted (e.g. "2 min ago", live-updating)
+  - Assigned driver name + unit (if already assigned)
+  - Mini map snippet showing patient GPS pin (if coords available)
+- This panel is **read-only for the admin** — no Accept/Dispatch buttons here. The flow goes directly to the driver. Admin monitors only.
+
+---
+
+#### Real-Time Data Binding Summary for Overview Page
+
+The Overview page must subscribe to these Socket.io events on mount and unsubscribe on unmount:
+
+| Event | Effect on Overview |
+|---|---|
+| `new_booking` | +1 Pending counter; prepend card to Incoming Requests panel |
+| `booking_status_update` { status: accepted } | -1 Pending; +1 Active; remove from Incoming Requests; add to Active Emergencies |
+| `booking_status_update` { status: dispatched } | Active count stays; update Active Emergencies card status badge |
+| `booking_status_update` { status: arrived } | -1 Active; +1 On Mission; update Active Emergencies card |
+| `booking_status_update` { status: completed } | -1 On Mission or Active; remove from Active Emergencies |
+| `booking_status_update` { status: cancelled } | Decrement whichever counter it was in; remove from Active Emergencies and/or Incoming Requests |
+| `booking_status_update` { status: denied / timed_out } | -1 Pending; remove card from Incoming Requests |
+| `driver_status_update` { status: available } | +1 Ready counter; update fleet map marker to green |
+| `driver_status_update` { status: on_trip } | -1 Ready counter; update fleet map marker to red |
+| `driver_status_update` { status: offline } | -1 Ready counter; update fleet map marker to grey |
+| `ambulance_location_update` | Update driver marker position on fleet map |
+
+**On socket reconnect:** re-fetch all four KPI counts from REST endpoints, re-fetch pending bookings list, and re-render fleet map markers from latest driver positions.
+
+---
+
+### Live Bookings Monitor Page
+
+> This is the admin's primary operational view. **Every status change from any surface appears here instantly** — no refresh needed.
+
+**KPI Counter Row (live, auto-updating):**
+```
+[Pending: N]  [Accepted: N]  [Dispatched: N]  [Arrived: N]  [Completed: N]  [Cancelled: N]  [Total: N]
+```
+All counters update in real-time as `booking_status_update` events arrive.
+
+**Booking Table — each row shows:**
+- Patient Name + Phone
+- Assigned Driver (Full Name + Driver ID) and Ambulance Unit
+- Patient GPS location (View on Map link)
+- **Status badge** — color-coded, live-updating:
+  - 🟡 `PENDING` — waiting for driver response
+  - 🔵 `ACCEPTED` — driver confirmed
+  - 🟣 `DISPATCHED` — en route to patient
+  - 🟠 `ARRIVED` — driver at patient location
+  - 🟢 `COMPLETED` — trip finished
+  - 🔴 `CANCELLED` — cancelled (shows tooltip: *Cancelled by [driver/client] — "[reason]"*)
+  - ⚫ `DENIED` — driver denied (shows reassign option)
+  - ⏱️ `TIMED_OUT` — driver didn't respond (shows reassign option)
+- Time of last status change
+- Actions column (context-sensitive):
+  - **Reassign** button — only visible on `denied` or `timed_out` rows
+  - **View on Map** — opens booking location on tracking map
+
+**Status rows NEVER stay stale.** The table listens to `booking_status_update` and patches the row in-place the moment any status change occurs — including cancellations from either the driver or client side.
+
+**Cancellation notification:**
+When a booking is cancelled, a **toast notification** appears in the admin dashboard:
+```
+🔴  Booking #{id} cancelled
+    Cancelled by: Driver  |  Reason: "Patient not reachable"
+    Patient: [Name] — [Phone]
+```
+
+**Admin action buttons — status changes that propagate to ALL surfaces:**
+
+The admin Live Monitor has context-sensitive action buttons per booking row. When the admin clicks any of these, the backend updates the database and **immediately broadcasts `booking_status_update` to the client, driver, and admin — all three simultaneously.**
+
+| Button | Visible when status is | API call | New status | Driver receives | Client receives |
+|---|---|---|---|---|---|
+| **Mark Dispatched** | `accepted` | `PATCH /bookings/:id/dispatch` | `dispatched` | Screen updates to show "You are dispatched" state | Tracking page status banner updates to DISPATCHED |
+| **Mark Arrived** | `dispatched` | `PATCH /bookings/:id/arrive` | `arrived` | Trip screen updates to arrived state | Tracking page updates to ARRIVED, ETA shows "Driver is here" |
+| **Reassign** | `denied` or `timed_out` | `PATCH /bookings/:id/reassign` | `pending` | New driver receives the request in their overlay | Client tracking page shows "Finding a driver..." |
+
+**The rule:** Admin clicking a status button is treated identically to the driver or client triggering that status change — the backend runs the same `statusBroadcaster` and emits `booking_status_update` to all three rooms. No surface stays in its old state.
+
+**Admin fallback (reassignment):**
+Admin can click **Reassign** on `denied` or `timed_out` bookings to select a different available driver. This resets the booking to `pending` and sends the request to the new driver's overlay.
+
+---
+
 ### Ambulance Management
 
-- Register new ambulance: Ambulance Number, Driver assignment, GPS capability, Status
-- Activate / Deactivate ambulances
-- Monitor availability
-- Status auto-updates to `busy` when a booking is accepted, back to `available` when trip is completed
+- Register ambulance: Number, Driver, GPS capability, Status
+- Activate / Deactivate
+- Status auto-updates: `busy` when driver accepts → `available` when trip completes or cancels
 
 ---
 
-### Driver Management (Admin-Side Only)
+### Driver Management
 
-Admins register all drivers. No self-serve driver sign-up.
-
-- Register new driver → system auto-generates Driver ID
-- Share Driver Name + Driver ID with the driver for login
-- Edit driver details
+- Register drivers (admin only), auto-generate Driver ID
 - View driver status: `available` | `on_trip` | `offline`
-- Assign driver to ambulance unit
-
----
-
-### Booking Requests Page
-
-- Fetches from `GET /api/bookings?status=pending`
-- Listens to `new_booking` Socket.io event → new requests appear instantly without page refresh
-- Each request shows: Patient Name, Phone, Emergency Description, Patient location on Leaflet map
-- Admin actions: **Assign Ambulance → Accept → Dispatch**
-- On Accept: calls `PATCH /api/bookings/:id/accept`, emits `booking_accepted` to client + driver
-- On Dispatch: calls `PATCH /api/bookings/:id/dispatch`, emits `ambulance_dispatched`
-- Admin can see driver's response in real-time:
-  - ✅ Driver Accepted → booking status updates to `accepted`
-  - ❌ Driver Denied → admin is notified, can reassign to another driver
-  - ⏳ No response within timeout → admin is notified, request flagged for reassignment
+- Assign to ambulance unit
 
 ---
 
 ### Real-Time Tracking Map
 
 - Leaflet + OpenStreetMap
-- Live ambulance markers + patient markers per active booking
-- Listens to `ambulance_location_update` and `patient_location_update` Socket.io events
-- Admin can click any active booking marker to see full dispatch info
+- Live markers per active booking
+- Listens to `ambulance_location_update`, `patient_location_update`, `booking_status_update`
+- Cancelled or completed bookings automatically remove their markers from the map
 
 ---
 
 ### Patient Records Page
 
-Patient records are automatically created from booking submissions — no separate registration required.
-
-Each patient record shows:
-- Patient Name and Phone Number
-- All past and current bookings
-- Emergency history with dates and descriptions
-- Assigned ambulance, driver, and company per booking
-- Payment status per booking
-- Rating and feedback per completed booking
-
-Admin can:
-- Search by name or phone number
-- Filter by booking status or date range
-- Open a patient detail page showing all bookings for that patient
+Auto-created from booking submissions. Shows:
+- Patient Name, Phone, booking history, emergency descriptions
+- Per-booking: assigned driver/ambulance, payment status, ratings, cancellation info
+- Search by name/phone, filter by status/date
 
 ---
 
 ### Payment Management
 
-- `GET /api/payments` — view all records
-- `PATCH /api/payments/:id/confirm` — confirm payment
-- Transaction history with filters
-
----
-
-### Ratings & Feedback
-
-- View all patient ratings and feedback
-- Filterable by driver, ambulance, date range
+- `GET /api/payments` — view all
+- `PATCH /api/payments/:id/confirm` — confirm
+- Filter by status, date, driver
 
 ---
 
 ### Reports & Analytics
 
 Report Types:
-- Booking Summary Report
-- Revenue / Payments Report
-- Ambulance Utilization Report
-- Driver Performance Report
-- Patient & Feedback Report
-- Emergency Response Time Report
+- Booking Summary, Revenue/Payments, Ambulance Utilization
+- **Driver Performance** — orders accepted/denied, earnings, response time, rating, cancellation rate
+- Patient & Feedback, Emergency Response Time
 
-Filters (on all reports):
-- Date range picker
-- Ambulance filter
-- Driver filter
-- Booking status filter
-- Payment status filter
+Export: PDF, Excel/CSV, Print
 
-Export Formats:
-- PDF (jsPDF or server-side)
-- Excel / CSV
-- Print view
-
-Charts (Chart.js or Recharts):
-- Bookings over time — line chart
-- Revenue by period — bar chart
-- Ambulance status breakdown — pie chart
-- Average response time trend
-- Rating distribution
-
-Page UI elements:
-- Date range selector
-- Report type dropdown
-- Generate button
-- Preview panel
-- Export toolbar
+Charts:
+- Bookings over time (line), Revenue by period (bar), Status breakdown (pie)
+- Response time trend, Rating distribution, Driver leaderboard (orders + earnings)
 
 ---
 
@@ -345,69 +572,96 @@ Page UI elements:
 
 ### Access
 
-Driver logs in via the shared login page using **Driver Name + Driver ID**.
-System detects role `driver` → redirects to Driver Dashboard.
-Driver cannot access any admin routes or pages.
+Driver logs in via shared page using Driver Name + Driver ID.
+Role `driver` → redirects to Driver Dashboard.
+
+### Global Driver Layout
+
+The entire Driver App — every page — is wrapped in a single **Global DriverLayout** component that is **never unmounted** as the driver navigates between screens.
+
+**This layout is responsible for:**
+1. **Persistent socket connection** — connects to `driver_room_{driverId}` once on login and keeps the connection alive across all page navigation (Home, Profile, History, Active Trip). The socket does NOT disconnect or re-initialize when the driver changes screens.
+2. **Global `new_booking` listener** — the `new_booking` event listener lives in the layout, not in any individual page. This means the incoming request overlay fires **regardless of which screen the driver is currently on**:
+   - Driver is on the **Home screen** → overlay appears ✅
+   - Driver is on the **Profile screen** → overlay appears ✅
+   - Driver is on the **Trip History screen** → overlay appears ✅
+   - Driver is on the **Active Trip screen** → overlay appears ✅ (stacked on top; driver must handle current trip first or deny the new one)
+3. **Global `booking_status_update` / `booking_cancelled` listener** — handles client cancellations and status changes at the layout level so the driver is notified regardless of which screen they are on.
+4. **Re-join on reconnect** — on every socket reconnect, the layout automatically re-joins `driver_room_{driverId}` and calls `GET /bookings/active?driverId=` to reconcile whether there is still an active trip to display.
+
+**Implementation note:** The incoming request overlay must be rendered as a **portal or top-level component inside the layout**, rendered above all page content with a high z-index. It must not be placed inside any individual page component, otherwise it will only work on that page.
+
+```
+<DriverLayout>          ← socket lives here, global listeners live here
+  <IncomingRequestOverlay />   ← rendered here, always on top, shows/hides via layout state
+  <Routes>
+    <Route path="/home"    element={<DriverHome />} />
+    <Route path="/trip"    element={<ActiveTrip />} />
+    <Route path="/history" element={<TripHistory />} />
+    <Route path="/profile" element={<DriverProfile />} />
+  </Routes>
+</DriverLayout>
+```
 
 ---
 
 ### Page 1 — Incoming Request Screen (SafeBoda-style)
 
-When a new booking is assigned to this driver, a **full-screen popup / notification card** appears showing:
+Triggered by `new_booking` event in `driver_room_{driverId}`:
 
-- Patient Name
-- Emergency Description
-- Patient location on a static Leaflet map preview
-- Distance from driver
-- Estimated trip time
-- Company Name (the company this driver belongs to)
+**Full-screen overlay showing:**
+- Patient Name, Emergency Description
+- Static Leaflet map preview of patient location
+- Distance from driver, Estimated trip time
+- Company Name
 
-Two action buttons:
-- ✅ **Accept** → confirms booking, driver is dispatched, emits `driver_accepted` event
-- ❌ **Deny** → returns request to admin for reassignment, emits `driver_denied` event
+**Action buttons:**
+- ✅ **Accept** → `PATCH /bookings/:id/accept`, emits `driver_accepted` → client + admin notified instantly
+- ❌ **Deny** → `PATCH /bookings/:id/deny`, emits `driver_denied` → admin notified for optional reassignment
 
-**Timeout:** If driver does not respond within a configurable time (e.g. 30 seconds), request auto-returns to admin and driver is notified.
-
-Admin sees driver's response in real-time on the Booking Requests page.
+**Timeout:** 30 seconds → auto-`timed_out`, admin notified, driver notified "Request expired"
 
 ---
 
 ### Page 2 — Active Trip / Navigation Screen
 
-After accepting:
+After accepting, driver is taken to the active trip screen.
 
-- Live Leaflet map showing:
-  - Driver's current location (auto-updating via GPS every 5 seconds)
-  - Patient's location (live-updated from patient's device)
-  - Route line between them
+**Cancellation Handling on Driver:**
+- If `booking_cancelled` received (client cancelled): active trip screen dismissed immediately, toast shown:
+  ```
+  ⚠️  Patient has cancelled this trip.
+  ```
+  Driver status returns to `available`. Driver is returned to home screen.
 
-- Trip info panel:
-  - Patient Name
-  - Phone Number → **tap to call** (`tel:` link opens native dialer)
-  - Emergency description
-  - Estimated arrival time
+- **Cancel Trip button** on driver screen: requires reason input → calls `PATCH /bookings/:id/cancel` with `cancelled_by: "driver"` → client + admin notified instantly
 
-- Action buttons:
-  - **"Mark as Arrived"** → updates booking status to `arrived`
-  - **"Complete Trip"** → updates status to `completed`, triggers rating page on client, emits `trip_completed`
-  - **"Cancel Trip"** → requires reason input, notifies admin
+**Live map:**
+- Driver GPS (emitted every 5 seconds via `ambulance_location_update`)
+- Patient location (received via `patient_location_update`)
+- Route line between them
 
-Driver emits `ambulance_location_update` every 5 seconds → client tracking page and admin map update in real-time.
+**Trip info panel:** Patient Name, Phone (tap to call), Emergency description, ETA
+
+**Action buttons:**
+- **"Mark as Arrived"** → `PATCH /bookings/:id/arrive` → status `arrived` propagated to all surfaces
+- **"Complete Trip"** → `PATCH /bookings/:id/complete` → status `completed` propagated to all surfaces, rating page shown on client
+- **"Cancel Trip"** → requires reason → cancellation propagated to all surfaces
 
 ---
 
 ### Page 3 — Trip History
 
-- List of all past trips
-- Status, patient info, date, earnings per trip
+- All past trips: status, patient info, date, earnings
+- Total earnings summary
 
 ---
 
 ### Page 4 — Profile
 
-- Driver Full Name, Driver ID, Photo
-- Assigned ambulance details: Ambulance Number, Company Name
-- Status toggle: **Available** / **Offline**
+- Full Name, Driver ID, Photo
+- Ambulance Number, Company Name
+- Status toggle: **Available / Offline**
 
 ---
 
@@ -427,7 +681,10 @@ Driver emits `ambulance_location_update` every 5 seconds → client tracking pag
 | company_id | FK | Selected company |
 | ambulance_id | FK | Assigned ambulance |
 | driver_id | FK | Assigned driver |
-| status | enum | pending / accepted / dispatched / arrived / completed / cancelled |
+| status | enum | `pending` / `accepted` / `dispatched` / `arrived` / `completed` / `cancelled` / `denied` / `timed_out` |
+| cancelled_by | enum | `driver` / `client` / `admin` — null unless cancelled |
+| cancel_reason | text | Required when status = cancelled |
+| cancelled_at | timestamp | Set when cancelled |
 | payment_status | enum | unpaid / paid / confirmed |
 | rating | int | Null until submitted |
 | feedback | text | Null until submitted |
@@ -441,7 +698,7 @@ Driver emits `ambulance_location_update` every 5 seconds → client tracking pag
 - id, company_id, ambulance_number, driver_id, gps_capable, status (available/busy/inactive)
 
 ### drivers table
-- id, company_id, ambulance_id, full_name, driver_id (e.g. DRV-00123), phone, photo, status (available/on_trip/offline)
+- id, company_id, ambulance_id, full_name, driver_id (DRV-XXXXX), phone, photo, status (available/on_trip/offline)
 
 ### users table (admins only)
 - id, company_id, full_name, email, password_hash, role (super_admin/admin)
@@ -454,26 +711,55 @@ All three surfaces join a booking room: `room:booking_{bookingId}`
 
 | Event | Emitter | Listeners | Description |
 |---|---|---|---|
-| `new_booking` | Client App | Admin, Driver | Patient submits booking form |
-| `booking_accepted` | Admin | Client, Driver | Admin accepts booking |
-| `ambulance_dispatched` | Admin | Client, Driver | Admin dispatches ambulance |
-| `driver_accepted` | Driver App | Admin, Client | Driver accepts the trip |
-| `driver_denied` | Driver App | Admin | Driver denies — admin reassigns |
-| `driver_location_update` | Driver App | Client, Admin | GPS every 5 seconds |
+| `join_driver_room` | Driver App | Server | Driver joins `driver_room_{driverId}` on connect/reconnect |
+| `join_admin_monitor` | Admin Dashboard | Server | Admin joins `admin_monitor` room on connect |
+| `new_booking` | Client App | Driver (primary), Admin (monitor) | Booking submitted — goes directly to driver |
+| `driver_accepted` | Driver App | Client, Admin | Driver accepts — all surfaces update to `accepted` |
+| `driver_denied` | Driver App | Admin | Driver denies — admin sees `denied`, can reassign |
+| `booking_status_update` | **Backend** (on every status change) | **Client, Driver, Admin — ALL THREE** | Universal status sync event. Payload: `{ bookingId, status, cancelledBy?, cancelReason? }` |
+| `booking_cancelled` | **Backend** (when status = cancelled) | Client, Driver, Admin | Explicit cancellation event with reason and who cancelled |
+| `ambulance_location_update` | Driver App | Client, Admin | GPS every 5 seconds |
 | `patient_location_update` | Client App | Driver, Admin | GPS every 5 seconds |
-| `trip_completed` | Driver App | Client, Admin | Trip ended — show rating page |
+| `trip_completed` | Backend (on complete) | Client, Admin | Trip ended — rating page shown on client |
+| `driver_status_update` | **Backend** (on every driver status change) | Admin (Overview + Monitor) | Driver goes available/on_trip/offline — updates KPI counters and fleet map markers |
 | `payment_confirmed` | Admin | Client | Payment confirmed |
+
+> **Key rule:** The backend is responsible for emitting `booking_status_update` to all rooms on **every** status change. No frontend should change status locally without a server confirmation first.
 
 ---
 
-## 7. Full Backend API
+## 7. Status Sync Implementation Rules (Backend)
+
+Every booking status mutation endpoint must follow this pattern:
+
+```
+1. Validate the request and the transition is legal
+2. Update bookings SET status = ?, cancelled_by = ?, cancel_reason = ?, updated_at = NOW()
+3. Update related ambulance status if needed (busy ↔ available)
+4. Update related driver status if needed (on_trip ↔ available)
+   → Emit driver_status_update to admin_monitor with { driverId, status, ambulanceId }
+5. Emit booking_status_update to:
+     - room:booking_{bookingId}
+     - driver_room_{driverId}
+     - admin_monitor
+6. If status = cancelled: also emit booking_cancelled with { cancelledBy, cancelReason }
+7. If status = completed: also emit trip_completed
+8. Return { success: true, booking: updatedBooking }
+```
+
+This ensures **no surface can ever be out of sync** with the database.
+
+---
+
+## 8. Full Backend API
 
 ### Auth
 ```
-POST /auth/login/admin         — email + password → returns JWT + role
-POST /auth/login/driver        — driver_name + driver_id → returns JWT + role
-POST /auth/register            — company/admin registration
-POST /auth/refresh             — refresh access token
+POST /auth/login/admin
+GET  /drivers/verify/:id
+POST /auth/login/driver
+POST /auth/register
+POST /auth/refresh
 POST /auth/logout
 POST /auth/forgot-password
 POST /auth/reset-password
@@ -481,52 +767,55 @@ POST /auth/reset-password
 
 ### Companies
 ```
-GET  /companies                — list all companies (public — for client map)
+GET  /companies
 GET  /companies/:id
 ```
 
 ### Ambulances & Drivers
 ```
-GET  /ambulances               — list with filters
-POST /ambulances               — register new ambulance (admin only)
-PATCH /ambulances/:id/status   — activate / deactivate
-GET  /location/ambulances/nearby  — public, returns available units by proximity
-POST /drivers                  — register new driver (admin only)
+GET  /ambulances
+POST /ambulances               — admin only
+PATCH /ambulances/:id/status
+GET  /location/ambulances/nearby
+POST /drivers                  — admin only
 GET  /drivers
 GET  /drivers/:id
 PATCH /drivers/:id
+PATCH /drivers/:id/status      — driver toggles available/offline → emits driver_status_update to admin_monitor
 ```
 
 ### Bookings
 ```
-GET  /bookings                 — list (admin, filtered by company)
-POST /bookings                 — create (public — client app)
-GET  /bookings/:id
-PATCH /bookings/:id/assign     — admin assigns ambulance + driver
-PATCH /bookings/:id/accept     — admin accepts
-PATCH /bookings/:id/dispatch   — admin dispatches
-PATCH /bookings/:id/arrive     — driver marks arrived
-PATCH /bookings/:id/complete   — driver completes trip
-PATCH /bookings/:id/cancel     — driver or admin cancels
-PATCH /bookings/:id/deny       — driver denies request
+GET  /bookings                       — admin monitor, full list
+POST /bookings                       — public, dispatches directly to driver
+GET  /bookings/:id                   — fetch latest status (used on reconnect)
+GET  /bookings/active?driverId=      — driver fetches their current active booking on reconnect
+PATCH /bookings/:id/accept           — driver accepts → broadcasts to all
+PATCH /bookings/:id/deny             — driver denies → broadcasts to all
+PATCH /bookings/:id/dispatch         — admin marks dispatched → broadcasts to all (driver + client update instantly)
+PATCH /bookings/:id/arrive           — admin OR driver marks arrived → broadcasts to all
+PATCH /bookings/:id/complete         — driver completes → broadcasts to all
+PATCH /bookings/:id/cancel           — driver OR client cancels → broadcasts to all
+                                       Body: { cancelled_by: "driver"|"client", cancel_reason: string }
+PATCH /bookings/:id/reassign         — admin reassigns after deny/timeout → new driver gets request
 ```
 
 ### Location
 ```
-POST /location/patient         — client updates patient GPS
-POST /location/driver          — driver updates GPS
+POST /location/patient
+POST /location/driver
 ```
 
 ### Payments
 ```
-GET  /payments                 — admin views all
-PATCH /payments/:id/confirm    — admin confirms
+GET  /payments
+PATCH /payments/:id/confirm
 ```
 
 ### Feedback
 ```
-POST /feedback                 — client submits rating
-GET  /feedback                 — admin views all
+POST /feedback
+GET  /feedback
 ```
 
 ### Reports
@@ -536,50 +825,80 @@ GET  /reports/:type?startDate=&endDate=&ambulanceId=&driverId=&status=&paymentSt
 
 ---
 
-## 8. Frontend Folder Structure (Monorepo)
+## 9. Frontend Reconnect & State Reconciliation
 
-```
-/ambulance-system
-  /client-app                  ← Patient React app (public)
-    /src
-      /pages                   ← Landing, Map, Tracking, Feedback
-      /components              ← AmbulanceCard, CompanyCard, BookingForm, MapView, DispatchInfo
-      /hooks                   ← useGeolocation, useSocket, useBooking
-      /services                ← api.js, socket.js
-      /store                   ← Zustand (booking state, location state)
+On every socket reconnect (all three surfaces):
 
-  /admin-dashboard             ← Admin React app (protected)
-    /src
-      /pages                   ← Login, Register, Dashboard, Ambulances, Drivers, Bookings,
-                                  Tracking, Payments, PatientRecords, Feedback, Reports
-      /components              ← Sidebar, KPICard, BookingTable, MapPanel, ReportChart, DriverCard
-      /hooks                   ← useAuth, useSocket, useReports
-      /services                ← api.js, socket.js
-      /store                   ← Auth store, booking store
+**Driver App:**
+1. Re-join `driver_room_{driverId}`
+2. Call `GET /bookings/active?driverId={id}` — this must fetch the latest booking with status `pending`, `accepted`, `dispatched`, or `arrived`.
+   - If the status is `pending`, immediately trigger the incoming request overlay.
+   - If the status is `accepted`/`dispatched`/`arrived`, restore the active trip screen.
+   - If the status is `cancelled`/`completed`, clear the state and go to home screen.
+3. Resume GPS emission if on active trip
 
-  /driver-app                  ← Driver React app (role-gated)
-    /src
-      /pages                   ← Login (shared), RequestScreen, TripScreen, History, Profile
-      /components              ← RequestCard, LiveMap, TripInfoPanel, CallButton
-      /hooks                   ← useDriverLocation, useSocket, useTrip
-      /services                ← api.js, socket.js
-      /store                   ← Trip store, location store
+**Client App:**
+1. Re-join `room:booking_{bookingId}` (from persisted Zustand store)
+2. Call `GET /bookings/:id` — sync latest status; if cancelled/completed, update screen accordingly
+3. Resume patient GPS emission if booking is still active
 
-  /backend                     ← Node.js / Express
-    /src
-      /routes
-      /controllers
-      /models                  ← Sequelize (SQLite dev / PostgreSQL prod)
-      /middleware               ← auth, rbac, rateLimit
-      /socket                  ← Socket.io event handlers
-      /services                ← location, notification, report generation
-```
+**Admin Dashboard:**
+1. Re-join `admin_monitor`
+2. Call `GET /bookings` to refresh the full table and reconcile any status changes missed during disconnect
+3. Call `GET /bookings?status=pending` to repopulate Incoming Requests panel on Overview
+4. Call `GET /drivers` to repopulate fleet map markers and Ready counter on Overview
 
 ---
 
-## 9. Dispatch Display Rule — No Generic Labels
+## 10. Frontend Folder Structure (Monorepo)
 
-Everywhere a dispatch or assignment is shown — on the client tracking page, admin booking list, and driver screen — the display must always be:
+```
+/ambulance-system
+  /client-app
+    /src
+      /pages          ← Landing, Map, Selection, Tracking, Cancelled, Feedback
+      /components     ← AmbulanceCard, CompanyCard, BookingForm, MapView, DispatchInfo, StatusBanner
+      /hooks          ← useGeolocation, useSocket, useBooking, useStatusSync
+      /services       ← api.js, socket.js
+      /store          ← Zustand (booking state, location state — persisted)
+
+  /admin-dashboard
+    /src
+      /pages          ← Login, Register, Dashboard (Overview/DispatchCenter), Ambulances, Drivers,
+                         LiveBookingsMonitor, Tracking, Payments,
+                         PatientRecords, Feedback, Reports
+      /components     ← Sidebar, KPICard, BookingMonitorTable, StatusBadge,
+                         CancelToast, MapPanel, ReportChart, DriverPerformanceTable,
+                         FleetMap, IncomingRequestsPanel, ActiveEmergenciesPanel, LiveClock
+      /hooks          ← useAuth, useSocket, useReports, useStatusSync
+      /services       ← api.js, socket.js
+      /store          ← Auth store, booking monitor store
+
+  /driver-app
+    /src
+      /pages          ← Login, RequestScreen, TripScreen, History, Profile
+      /components     ← RequestCard, LiveMap, TripInfoPanel, CallButton, CancelButton
+      /hooks          ← useDriverLocation, useSocket, useTrip, useStatusSync
+      /services       ← api.js, socket.js
+      /store          ← Trip store, location store
+
+  /backend
+    /src
+      /routes
+      /controllers
+      /models         ← Sequelize (SQLite dev / PostgreSQL prod)
+      /middleware     ← auth, rbac, rateLimit
+      /socket         ← Socket.io event handlers, room management, status broadcaster
+      /services       ← location, notification, report generation, statusBroadcaster.js
+```
+
+> **`statusBroadcaster.js`** is a shared backend service called by every booking controller. It handles the standard emit pattern to all three rooms on every status change.
+
+---
+
+## 11. Dispatch Display Rule — No Generic Labels
+
+Everywhere a dispatch or assignment is shown:
 
 ```
 🚑  [Company Name]
@@ -588,22 +907,27 @@ Everywhere a dispatch or assignment is shown — on the client tracking page, ad
     📞 Call Driver     📞 Call Company
 ```
 
-- **Call Driver** → `tel:[driver_phone]`
-- **Call Company** → `tel:[company_phone]`
-
-**Never** display a generic label like "Rescue Unit", "Driver 1", or "Ambulance A".
+**Never** display "Rescue Unit", "Driver 1", or "Ambulance A".
 
 ---
 
-## 10. Key Design Rules
+## 12. Key Design Rules
 
 1. **One login page, smart routing** — role detected server-side, redirect client-side
 2. **Admins use email + password** — drivers use name + driver ID
 3. **Drivers created by admin only** — no self-serve driver registration
-4. **Each company's units show separately on client** — patients see and choose by company
-5. **Dispatch always shows real names** — Company Name + Driver Name + Driver ID + call buttons
-6. **Admin sees driver responses in real-time** — accepted, denied, or timed out
-7. **Driver app is SafeBoda-style** — full-screen incoming request, accept/deny with timeout
-8. **Everything syncs** — all booking state changes propagate instantly to all three surfaces via Socket.io rooms
-9. **Single database** — client app, admin, and driver app all read/write the same tables
-10. **Maps everywhere use Leaflet + OpenStreetMap** — no Google Maps, no API key required
+4. **Requests go directly to the driver** — no admin approval gate
+5. **Admin monitors, not dispatches** — sees everything in real-time but does not block the flow
+6. **Status is always in sync across all three surfaces** — `booking_status_update` is emitted to all rooms on every change
+7. **Cancellation propagates immediately both ways** — driver cancel notifies client; client cancel notifies driver; admin sees both
+8. **`cancelled_by` and `cancel_reason` are always stored and visible to admin**
+9. **No surface shows stale status** — every surface reconciles with the server on load and socket reconnect
+10. **Admin Live Monitor is never stale** — rows update in-place in real-time; cancelled bookings never stay showing active
+11. **Driver notifies completion via `trip_completed`** — client sees rating page, admin records it
+12. **Admin fallback only** — admin reassigns only on `denied` or `timed_out` bookings
+13. **Dispatch always shows real names** — Company + Driver Name + ID + call buttons
+14. **SafeBoda-style driver request screen** — full-screen overlay, direct dispatch, 30s timeout
+15. **Maps: Leaflet + OpenStreetMap everywhere** — no Google Maps, no API key needed
+16. **Coordinate Safety** — every map marker validates lat/lng before rendering
+17. **Socket Resilience** — all clients rejoin their rooms and reconcile state on reconnect
+18. **Client Persistence** — active booking survives browser refresh via Zustand persist

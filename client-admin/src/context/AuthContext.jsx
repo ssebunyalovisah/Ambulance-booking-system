@@ -76,27 +76,31 @@ export const AuthProvider = ({ children }) => {
         clearAllTimers();
         setShowSessionWarning(false);
 
-        // Show warning 5 min before timeout
-        warningTimer.current = setTimeout(() => {
-            setShowSessionWarning(true);
-            setWarningTimeLeft(WARNING_BEFORE);
-            // Countdown
-            warningCountdown.current = setInterval(() => {
-                setWarningTimeLeft(prev => {
-                    if (prev <= 1000) {
-                        clearInterval(warningCountdown.current);
-                        performLogout();
-                        return 0;
-                    }
-                    return prev - 1000;
-                });
-            }, 1000);
-        }, INACTIVITY_TIMEOUT - WARNING_BEFORE);
+        // Show warning 5 min before timeout if not "remember me"
+        if (localStorage.getItem('adminRememberMe') !== 'true') {
+            warningTimer.current = setTimeout(() => {
+                setShowSessionWarning(true);
+                setWarningTimeLeft(WARNING_BEFORE);
+                // Countdown
+                warningCountdown.current = setInterval(() => {
+                    setWarningTimeLeft(prev => {
+                        if (prev <= 1000) {
+                            clearInterval(warningCountdown.current);
+                            performLogout();
+                            return 0;
+                        }
+                        return prev - 1000;
+                    });
+                }, 1000);
+            }, INACTIVITY_TIMEOUT - WARNING_BEFORE);
+        }
 
-        // Auto-logout
-        inactivityTimer.current = setTimeout(() => {
-            performLogout();
-        }, INACTIVITY_TIMEOUT);
+        // Auto-logout if not "remember me"
+        if (localStorage.getItem('adminRememberMe') !== 'true') {
+            inactivityTimer.current = setTimeout(() => {
+                performLogout();
+            }, INACTIVITY_TIMEOUT);
+        }
     }, [clearAllTimers, performLogout]);
 
     const handleStaySignedIn = useCallback(() => {
@@ -148,6 +152,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('adminToken', accessToken);
         if (refreshToken) {
             localStorage.setItem('adminRefreshToken', refreshToken);
+        }
+        if (rememberMe) {
+            localStorage.setItem('adminRememberMe', 'true');
+        } else {
+            localStorage.removeItem('adminRememberMe');
         }
         
         if (user.role === 'driver') {
