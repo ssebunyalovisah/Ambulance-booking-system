@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:5001' : 'https://ambulance-booking-system-4ytj.onrender.com');
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://ambulance-booking-system-4ytj.onrender.com';
 
 class SocketService {
     constructor() {

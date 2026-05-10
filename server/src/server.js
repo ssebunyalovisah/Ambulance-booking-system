@@ -23,7 +23,8 @@ const allowedOrigins = [
     'http://localhost:5175',
     'https://ambulance-booking-system-4ytj.onrender.com',
     'https://ambulance-admin.onrender.com',
-    'https://ambulance-driver.onrender.com'
+    'https://ambulance-driver.onrender.com',
+    'https://client-admin-kiu.vercel.app'
 ];
 
 app.use(cors({
