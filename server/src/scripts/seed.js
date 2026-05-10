@@ -18,13 +18,39 @@ const seed = async () => {
         
         // If postgres, we must convert SQLite syntax to Postgres syntax
         if (process.env.DB_TYPE === 'postgres' || process.env.DATABASE_URL) {
+            console.log('Converting SQLite schema to PostgreSQL...');
             schema = schema.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY');
             schema = schema.replace(/DATETIME/g, 'TIMESTAMP');
+            schema = schema.replace(/DEFAULT CURRENT_TIMESTAMP/g, 'DEFAULT NOW()');
+            schema = schema.replace(/REAL/g, 'DOUBLE PRECISION');
+            schema = schema.replace(/BOOLEAN DEFAULT 1/g, 'BOOLEAN DEFAULT TRUE');
+            schema = schema.replace(/BOOLEAN DEFAULT 0/g, 'BOOLEAN DEFAULT FALSE');
             
-            await db.query(schema);
+            // Split by semicolon and filter out empty lines/comments
+            const statements = schema.split(';').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('--'));
+            
+            for (let statement of statements) {
+                try {
+                    await db.query(statement);
+                } catch (e) {
+                    // Ignore "already exists" errors if using CREATE TABLE IF NOT EXISTS
+                    if (!e.message.includes('already exists')) {
+                        console.warn(`Statement failed: ${statement.substring(0, 50)}... Error: ${e.message}`);
+                    }
+                }
+            }
         } else {
-            // SQLite executes in the background, but let's assume SQLite handled it in db.js
             console.log('SQLite handles schema automatically in db.js');
+        }
+
+        // Ensure essential columns exist (Migration for existing tables)
+        if (process.env.DB_TYPE === 'postgres' || process.env.DATABASE_URL) {
+            try {
+                await db.query('ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT UNIQUE');
+                await db.query('ALTER TABLE companies ALTER COLUMN email SET NOT NULL');
+            } catch (e) {
+                // Ignore errors if column already exists or table is fresh
+            }
         }
 
         // 1. Create a default company

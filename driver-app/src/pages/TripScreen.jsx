@@ -38,7 +38,7 @@ const TripScreen = () => {
     const handleArrived = async () => {
         try {
             await socketService.emitDriverLocation({ ...currentLocation, bookingId: currentTrip.id }); // One last precise update
-            await updateBookingStatus(currentTrip.id, 'ARRIVED');
+            await updateBookingStatus(currentTrip.id, 'ARRIVE');
             setStatus('arrived');
             socketService.socket.emit('driver_arrived', { bookingId: currentTrip.id });
         } catch (error) {
