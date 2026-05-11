@@ -93,14 +93,24 @@ app.get('/api/health', (req, res) => {
 // Database Synchronization and Server Start
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync().then(() => {
-  console.log('Database synced successfully.');
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}).catch(err => {
-  console.error('Failed to sync database:', err);
-});
+const startServer = async () => {
+  try {
+    // sync() is safe in production as long as force/alter are false (default)
+    // It will only create missing tables, not drop existing data.
+    await sequelize.sync();
+    console.log('[Database] All models synchronized successfully.');
+
+    server.listen(PORT, () => {
+      console.log(`[Server] Ambulance System Backend (v3) is running on port ${PORT}`);
+      console.log(`[Environment] ${process.env.NODE_ENV || 'development'}`);
+    });
+  } catch (err) {
+    console.error('[Database] Sync failed:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful Shutdown
 const shutdown = () => {

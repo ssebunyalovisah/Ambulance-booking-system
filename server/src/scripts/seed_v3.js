@@ -6,9 +6,9 @@ const seed = async () => {
   try {
     console.log('Seeding Database (v3)...');
     
-    // Force sync to clear old SQLite data and apply new schema
-    await sequelize.sync({ force: true });
-    console.log('Database schema reset and synced.');
+    // Sync without force to avoid wiping existing production data if run accidentally
+    await sequelize.sync();
+    console.log('Database schema synced.');
 
     // 1. Create Company
     const company = await Company.create({
