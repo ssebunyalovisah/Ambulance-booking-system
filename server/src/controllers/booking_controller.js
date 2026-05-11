@@ -42,6 +42,7 @@ const broadcastBookingUpdate = (req, bookingId, eventName, payload = {}) => {
 
         // 5. Driver's private room
         if (payload.driver_id) {
+            io.to(`driver_room_${payload.driver_id}`).emit(eventName, payload);
             io.to(`driver_room_${payload.driver_id}`).emit('booking_status_update', payload);
         }
     } else {

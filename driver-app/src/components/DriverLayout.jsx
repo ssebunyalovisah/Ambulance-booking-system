@@ -66,6 +66,11 @@ const DriverLayout = ({ children }) => {
 
         const socket = socketService.connect();
 
+        // Request notification permission on first load
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
         // ── Reconcile state with server (v3 spec) ───────────────────────────────
         const reconcileState = async () => {
             let currentCompanyId = localStorage.getItem('companyId');
@@ -145,6 +150,35 @@ const DriverLayout = ({ children }) => {
             if (!activeTrip) {
                 setCurrentRequest(data);
                 setTimeLeft(TIMEOUT_SECONDS);
+
+                // Show browser notification if permission granted
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const notification = new Notification('🚑 New Emergency Assignment!', {
+                        body: `Patient: ${data.patient_name}\nEmergency: ${data.emergency_description || 'Immediate assistance required'}`,
+                        icon: '/ambulance-icon.png', // You can add an icon to the public folder
+                        tag: `booking-${data.id}`, // Prevents duplicate notifications
+                        requireInteraction: true, // Keeps notification visible until user interacts
+                        silent: false // Allow sound if system allows
+                    });
+
+                    // Click notification to focus window
+                    notification.onclick = () => {
+                        window.focus();
+                        notification.close();
+                    };
+
+                    // Auto-close after 30 seconds
+                    setTimeout(() => notification.close(), 30000);
+                }
+
+                // Play notification sound if available
+                try {
+                    const audio = new Audio('/notification.mp3'); // You can add a sound file to public folder
+                    audio.volume = 0.5;
+                    audio.play().catch(() => {}); // Ignore if sound fails
+                } catch (e) {
+                    // Sound not available, continue silently
+                }
             }
         };
 
@@ -161,6 +195,23 @@ const DriverLayout = ({ children }) => {
                     useTripStore.getState().setCurrentTrip(null);
                     alert(`Booking #${data.id} was cancelled by the ${data.cancelled_by || 'patient'}.`);
                     navigate('/requests');
+                }
+            } else if (data.status === 'dispatched') {
+                // Show notification when booking is dispatched (confirmed assignment)
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const notification = new Notification('🚑 Assignment Confirmed!', {
+                        body: `Booking #${data.id} has been dispatched. Please proceed to the patient location.`,
+                        icon: '/favicon.svg',
+                        tag: `dispatched-${data.id}`,
+                        requireInteraction: false
+                    });
+
+                    notification.onclick = () => {
+                        window.focus();
+                        notification.close();
+                    };
+
+                    setTimeout(() => notification.close(), 10000);
                 }
             }
         };
