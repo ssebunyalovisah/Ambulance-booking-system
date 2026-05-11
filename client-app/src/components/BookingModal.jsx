@@ -192,11 +192,11 @@ export default function BookingModal({ ambulance, onClose, onSubmit }) {
                                                 transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
                                                 className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                                             />
-                                            Processing Payment...
+                                            Processing...
                                         </>
                                     ) : (
                                         <>
-                                            Pay & Confirm Dispatch
+                                            {formData.payment === 'cash' ? 'Confirm Cash Dispatch' : 'Pay & Confirm Dispatch'}
                                             <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
                                                 →
                                             </motion.div>

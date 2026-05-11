@@ -22,6 +22,7 @@ import {
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
 
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#6366f1', '#ef4444', '#a855f7'];
 
@@ -61,7 +62,13 @@ export default function Reports() {
     fetchReportData();
   }, [reportType]);
 
-  const handleExportPDF = () => {
+  useEffect(() => {
+    if (filters.startDate && filters.endDate) {
+      fetchReportData();
+    }
+  }, [filters.startDate, filters.endDate]);
+
+  const handleExportPDF = async () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.text(`${REPORT_TYPES.find(t => t.id === reportType)?.label} - RescueAdmin`, 14, 22);
@@ -69,6 +76,39 @@ export default function Reports() {
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
     doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 35);
 
+    let yPosition = 45;
+
+    // Capture and add charts
+    const chartIds = [];
+    if (reportType === 'BOOKING_SUMMARY') {
+      chartIds.push('chart-1', 'chart-2');
+    } else if (reportType === 'REVENUE') {
+      chartIds.push('chart-3');
+    } else if (reportType === 'DRIVER_PERFORMANCE') {
+      chartIds.push('chart-4');
+    }
+
+    for (const chartId of chartIds) {
+      const chartElement = document.getElementById(chartId);
+      if (chartElement) {
+        try {
+          const canvas = await html2canvas(chartElement, { scale: 2 });
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = 180;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          if (yPosition + imgHeight > 280) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.addImage(imgData, 'PNG', 15, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 10;
+        } catch (error) {
+          console.error('Error capturing chart:', error);
+        }
+      }
+    }
+
+    // Add table data
     let tableData = [];
     let columns = [];
 
@@ -81,11 +121,24 @@ export default function Reports() {
     } else if (reportType === 'AMBULANCE_UTILIZATION') {
       columns = ["Ambulance #", "Total Bookings", "Completed"];
       tableData = data?.utilization.map(u => [u.ambulance_number, u.total_bookings, u.completed_bookings]) || [];
+    } else if (reportType === 'DRIVER_PERFORMANCE') {
+      columns = ["Driver Name", "Trips"];
+      tableData = data?.performance.map(p => [p.driver_name, p.trips]) || [];
+    } else if (reportType === 'FEEDBACK') {
+      columns = ["Rating", "Count"];
+      tableData = data?.feedback?.map(f => [f.rating, f.count]) || [];
+    } else if (reportType === 'RESPONSE_TIME') {
+      columns = ["Time Range", "Count"];
+      tableData = data?.response_times?.map(r => [r.range, r.count]) || [];
     }
 
     if (tableData.length > 0) {
+      if (yPosition + 50 > 280) {
+        doc.addPage();
+        yPosition = 20;
+      }
       doc.autoTable({
-        startY: 45,
+        startY: yPosition,
         head: [columns],
         body: tableData,
         theme: 'striped',
@@ -98,14 +151,32 @@ export default function Reports() {
 
   const handleExportExcel = () => {
     let exportData = [];
-    if (reportType === 'BOOKING_SUMMARY') exportData = data?.stats || [];
-    else if (reportType === 'REVENUE') exportData = data?.timeline || [];
-    else if (reportType === 'AMBULANCE_UTILIZATION') exportData = data?.utilization || [];
+    let sheetName = 'Report';
+
+    if (reportType === 'BOOKING_SUMMARY') {
+      exportData = data?.stats || [];
+      sheetName = 'Booking Summary';
+    } else if (reportType === 'REVENUE') {
+      exportData = data?.timeline || [];
+      sheetName = 'Revenue Timeline';
+    } else if (reportType === 'AMBULANCE_UTILIZATION') {
+      exportData = data?.utilization || [];
+      sheetName = 'Ambulance Utilization';
+    } else if (reportType === 'DRIVER_PERFORMANCE') {
+      exportData = data?.performance || [];
+      sheetName = 'Driver Performance';
+    } else if (reportType === 'FEEDBACK') {
+      exportData = data?.feedback || [];
+      sheetName = 'Feedback';
+    } else if (reportType === 'RESPONSE_TIME') {
+      exportData = data?.response_times || [];
+      sheetName = 'Response Times';
+    }
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.writeFile(wb, `RescueReport_${reportType}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, `RescueReport_${reportType}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const renderVisualizations = () => {
@@ -115,7 +186,7 @@ export default function Reports() {
       case 'BOOKING_SUMMARY':
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-1">
                 <h3 className="text-lg font-bold text-slate-900 mb-6">Booking Status Distribution</h3>
                 <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -140,7 +211,7 @@ export default function Reports() {
                     </ResponsiveContainer>
                 </div>
             </div>
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-2">
                 <h3 className="text-lg font-bold text-slate-900 mb-6">Bookings Trend</h3>
                 <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -168,7 +239,7 @@ export default function Reports() {
         );
       case 'REVENUE':
         return (
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-3">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold text-slate-900">Revenue Analysis</h3>
                     <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-2xl font-black text-xl">
@@ -194,7 +265,7 @@ export default function Reports() {
         );
         case 'DRIVER_PERFORMANCE':
             return (
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-4">
                     <h3 className="text-lg font-bold text-slate-900 mb-6">Trips per Driver</h3>
                     <div className="h-[400px]">
                         <ResponsiveContainer width="100%" height="100%">

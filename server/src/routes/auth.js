@@ -8,6 +8,7 @@ router.post('/login/admin', authController.loginAdmin);
 router.post('/login/driver', authController.loginDriver);
 router.post('/refresh', authController.refreshToken);
 router.post('/logout', authController.logout);
+router.get('/verify/:email', authController.verifyEmail);
 router.get('/me', auth, authController.getMe);
 
 module.exports = router;

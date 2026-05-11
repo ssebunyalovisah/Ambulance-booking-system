@@ -59,25 +59,43 @@ if (dbType === 'postgres') {
     // Helper to mimic pg's query interface
     query = async (text, params = []) => {
         if (!isInitialized) await initPromise;
-        
+
         // Map $1, $2... to ? and maintain correct order of parameters
         const orderedParams = [];
-        const sqliteQuery = text.replace(/\$\d+/g, (match) => {
+        let sqliteQuery = text.replace(/\$\d+/g, (match) => {
             const index = parseInt(match.substring(1)) - 1;
             orderedParams.push(params[index]);
             return '?';
         });
-        
-        return new Promise((resolve, reject) => {
-            const isSelect = sqliteQuery.trim().toUpperCase().startsWith('SELECT');
-            const hasReturning = sqliteQuery.trim().toUpperCase().includes('RETURNING');
 
-            if (isSelect || hasReturning) {
+        return new Promise((resolve, reject) => {
+            const trimmed = sqliteQuery.trim().toUpperCase();
+            const isSelect = trimmed.startsWith('SELECT');
+            const hasReturning = trimmed.includes('RETURNING');
+            const isInsert = trimmed.startsWith('INSERT');
+
+            if (isSelect) {
+                // Pure SELECT — use db.all()
                 db.all(sqliteQuery, orderedParams, (err, rows) => {
                     if (err) reject(err);
-                    else resolve({ rows, rowCount: rows.length, lastID: rows.length > 0 ? rows[0].id : null });
+                    else resolve({ rows: rows || [], rowCount: rows ? rows.length : 0, lastID: null });
+                });
+            } else if (hasReturning && isInsert) {
+                // INSERT ... RETURNING: SQLite doesn't support RETURNING.
+                // Strip the RETURNING clause and use db.run() + this.lastID, 
+                // then SELECT the new row by lastID to mimic pg behavior.
+                const strippedQuery = sqliteQuery.replace(/\s+RETURNING\s+\S+/gi, '').trim();
+                db.run(strippedQuery, orderedParams, function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        const newId = this.lastID;
+                        // Return a rows array with the id so controllers can use insertRes.rows[0].id
+                        resolve({ rows: [{ id: newId }], rowCount: 1, lastID: newId });
+                    }
                 });
             } else {
+                // UPDATE / DELETE / other DML
                 db.run(sqliteQuery, orderedParams, function(err) {
                     if (err) reject(err);
                     else resolve({ rows: [], rowCount: this.changes, lastID: this.lastID });

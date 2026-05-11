@@ -5,24 +5,66 @@ import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2, Ambulance, Eye, EyeOff, Shield } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const { login, loginDriver } = useAuth();
   const navigate = useNavigate();
+
+  // Smart Identification Logic
+  useEffect(() => {
+    const verify = async () => {
+      const cleanId = identifier.trim();
+      if (cleanId.length < 4) {
+        setDisplayName('');
+        return;
+      }
+
+      setIsVerifying(true);
+      try {
+        if (cleanId.includes('@')) {
+          // Verify Admin Email
+          const { data } = await api.get(`/auth/verify/${cleanId}`);
+          setDisplayName(data.full_name);
+        } else if (cleanId.startsWith('DRV-')) {
+          // Verify Driver ID
+          const { data } = await api.get(`/drivers/verify/${cleanId}`);
+          setDisplayName(data.full_name);
+        } else {
+          setDisplayName('');
+        }
+      } catch (err) {
+        setDisplayName('');
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    const timer = setTimeout(verify, 600);
+    return () => clearTimeout(timer);
+  }, [identifier]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     try {
-      await login(email, password, rememberMe);
+      const cleanId = identifier.trim();
+      if (cleanId.includes('@')) {
+        await login(cleanId, password, rememberMe);
+      } else if (cleanId.startsWith('DRV-')) {
+        await loginDriver(cleanId, displayName, rememberMe);
+      } else {
+        throw new Error('Please enter a valid email or Driver ID');
+      }
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Invalid credentials');
+      setError(err.response?.data?.error || err.message || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }
@@ -53,8 +95,8 @@ const Login = () => {
       <div className="flex-1 flex items-center justify-center p-8 bg-slate-950">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl font-black text-white mb-2">Welcome back</h1>
-            <p className="text-slate-500">Sign in to your administrative dashboard</p>
+            <h1 className="text-4xl font-black text-white mb-2">Access Portal</h1>
+            <p className="text-slate-500 font-medium uppercase tracking-widest text-[10px]">Staff & Admin Verification</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -65,22 +107,37 @@ const Login = () => {
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email or Driver ID</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 text-white pl-12 pr-4 py-4 rounded-2xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all"
-                  placeholder="admin@service.com"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-white pl-12 pr-4 py-4 rounded-2xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all font-bold"
+                  placeholder="admin@service.com or DRV-12345"
                   required
                 />
+                {isVerifying && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 animate-spin" />}
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Verified Name</label>
+                {displayName && <span className="text-[10px] font-black text-green-500 uppercase flex items-center gap-1 bg-green-500/10 px-2 py-0.5 rounded-full"><Shield className="w-3 h-3" /> Verified</span>}
+              </div>
+              <input
+                type="text"
+                value={displayName}
+                readOnly
+                className={`w-full py-4 px-5 rounded-2xl font-black transition-all ${displayName ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-slate-900/50 text-slate-600 border border-slate-800'}`}
+                placeholder="Identified User Name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Security Key / Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
@@ -107,10 +164,10 @@ const Login = () => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (identifier.startsWith('DRV-') && !displayName)}
               className="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-2"
             >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SIGN IN TO DASHBOARD'}
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SECURE SIGN IN'}
             </button>
           </form>
 

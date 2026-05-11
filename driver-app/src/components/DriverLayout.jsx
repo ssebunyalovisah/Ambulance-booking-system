@@ -1,22 +1,12 @@
 // driver-app/src/components/DriverLayout.jsx
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import L from 'leaflet';
+import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socket.js';
 import { acceptBooking, denyBooking, timeoutBooking, getActiveBooking } from '../services/api.js';
 import useTripStore from '../store/useTripStore.js';
 import useDriverLocation from '../hooks/useDriverLocation.js';
-import { Bell, X, Check, MapPin, User, Clock, Activity } from 'lucide-react';
+import { Bell, X, Check, MapPin, User, Clock } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-
-// Fix leaflet default icon paths
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
 
 const TIMEOUT_SECONDS = 30;
 
@@ -81,6 +71,7 @@ const DriverLayout = ({ children }) => {
 
     return () => {
       socket.off('connect', reconcile);
+      socketService.disconnect();
     };
   }, [navigate]);
 

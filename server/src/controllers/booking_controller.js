@@ -25,8 +25,8 @@ exports.getBookings = async (req, res) => {
     const bookings = await Booking.findAll({
       where,
       include: [
-        { model: Company, attributes: ['name'] },
-        { model: Driver, attributes: ['full_name', 'driver_id'] },
+        { model: Company, attributes: ['name', 'phone'] },
+        { model: Driver, attributes: ['full_name', 'driver_id', 'phone'] },
         { model: Ambulance, attributes: ['ambulance_number'] },
       ],
       order: [['created_at', 'DESC']],
@@ -64,7 +64,7 @@ exports.getActiveBookingForDriver = async (req, res) => {
       },
       include: [
         { model: Company, attributes: ['name', 'phone'] },
-        { model: Driver, attributes: ['full_name', 'driver_id'] },
+        { model: Driver, attributes: ['full_name', 'driver_id', 'phone'] },
         { model: Ambulance, attributes: ['ambulance_number'] },
       ],
       order: [['updated_at', 'DESC']],

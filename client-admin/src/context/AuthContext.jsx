@@ -124,6 +124,16 @@ export const AuthProvider = ({ children }) => {
     return user;
   };
 
+  const loginDriver = async (driverId, driverName, rememberMe) => {
+    const { data } = await api.post('/auth/login/driver', { driver_id: driverId, driver_name: driverName, rememberMe });
+    const { accessToken, refreshToken, user } = data;
+    localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    if (rememberMe) localStorage.setItem('rememberMe', 'true');
+    setAdmin(user);
+    return user;
+  };
+
   const signup = async (formData) => {
     const { data } = await api.post('/auth/signup', formData);
     return data;

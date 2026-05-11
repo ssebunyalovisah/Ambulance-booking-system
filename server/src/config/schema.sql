@@ -21,6 +21,17 @@ CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Ambulances Table (must be created before drivers due to FK reference)
+CREATE TABLE IF NOT EXISTS ambulances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    ambulance_number TEXT UNIQUE NOT NULL,
+    driver_id INTEGER, -- FK to drivers(id), set after drivers table exists
+    gps_capable BOOLEAN DEFAULT 1,
+    status TEXT DEFAULT 'available', -- available, busy, inactive
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Drivers Table
 CREATE TABLE IF NOT EXISTS drivers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,17 +42,6 @@ CREATE TABLE IF NOT EXISTS drivers (
     phone TEXT NOT NULL,
     photo TEXT,
     status TEXT DEFAULT 'available', -- available, on_trip, offline
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Ambulances Table
-CREATE TABLE IF NOT EXISTS ambulances (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
-    ambulance_number TEXT UNIQUE NOT NULL,
-    driver_id INTEGER REFERENCES drivers(id) ON DELETE SET NULL,
-    gps_capable BOOLEAN DEFAULT 1,
-    status TEXT DEFAULT 'available', -- available, busy, inactive
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

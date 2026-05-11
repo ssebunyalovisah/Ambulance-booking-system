@@ -44,7 +44,7 @@ api.interceptors.response.use(
 
 // Auth
 export const loginAdmin = (data) => api.post('/auth/login/admin', data);
-export const signupAdmin = (data) => api.post('/auth/register', data);
+export const signupAdmin = (data) => api.post('/auth/signup', data);
 export const getMe = () => api.get('/auth/me');
 
 // Bookings
