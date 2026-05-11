@@ -99,12 +99,12 @@ module.exports = (io) => {
     socket.on('driver_location_update', (data) => {
       // data: { bookingId, companyId, lat, lng, ambulanceId, driverId }
       if (data.bookingId) {
-        io.to(`room:booking_${data.bookingId}`).emit('driver_location_update', data);
+        io.to(`room:booking_${data.bookingId}`).emit('ambulance_location_update', data);
       }
       if (data.companyId) {
-        io.to(`company_dashboard_${data.companyId}`).emit('driver_location_update', data);
+        io.to(`company_dashboard_${data.companyId}`).emit('ambulance_location_update', data);
       }
-      io.to('super_dashboard').emit('driver_location_update', data);
+      io.to('super_dashboard').emit('ambulance_location_update', data);
       // v3 spec: also emit to admin_monitor
       io.to('admin_monitor').emit('ambulance_location_update', data);
     });

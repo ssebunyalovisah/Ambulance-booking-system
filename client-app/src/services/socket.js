@@ -36,14 +36,32 @@ class SocketService {
 
   onBookingUpdate(callback) {
     if (!this.socket) this.connect();
-    this.socket.on('booking_status_update', callback);
-    this.socket.on('booking_cancelled', callback);
-    this.socket.on('trip_completed', callback);
+    // Clear existing listeners to avoid duplicates on re-render
+    this.socket.off('booking_status_update');
+    this.socket.off('booking_cancelled');
+    this.socket.off('trip_completed');
+    
+    this.socket.on('booking_status_update', (data) => {
+      console.log('[Socket] Status Update received:', data);
+      callback(data);
+    });
+    this.socket.on('booking_cancelled', (data) => {
+      console.log('[Socket] Cancellation received:', data);
+      callback(data);
+    });
+    this.socket.on('trip_completed', (data) => {
+      console.log('[Socket] Trip Completed received:', data);
+      callback(data);
+    });
   }
 
   onAmbulanceLocation(callback) {
     if (!this.socket) this.connect();
-    this.socket.on('ambulance_location_update', callback);
+    this.socket.off('ambulance_location_update');
+    this.socket.on('ambulance_location_update', (data) => {
+      console.log('[Socket] Location Update received:', data);
+      callback(data);
+    });
   }
 
   disconnect() {
