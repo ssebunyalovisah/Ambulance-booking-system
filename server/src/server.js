@@ -26,7 +26,10 @@ const allowedOrigins = process.env.CORS_ORIGINS
     'http://localhost:3002',
     'http://localhost:5173',
     'http://localhost:5174',
-    'http://localhost:5175'
+    'http://localhost:5175',
+    'https://client-app-kiu.vercel.app',
+    'https://client-admin-kiu.vercel.app',
+    'https://driver-app-kiu.vercel.app'
   ];
 
 app.use(cors({
