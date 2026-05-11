@@ -1,4 +1,10 @@
 module.exports = (io) => {
+  // Import models for pending booking recovery
+  const { Booking, Company, Driver, Ambulance } = require('../models');
+
+  // Track active driver rooms for room verification
+  const activeDriverRooms = new Map(); // driverId -> socketId[]
+
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -48,11 +54,44 @@ module.exports = (io) => {
       console.log(`Socket ${socket.id} joined admin_monitor`);
     });
 
-    socket.on('join_driver_room', (data) => {
+    // CRITICAL: Driver room join with tracking and pending booking recovery
+    socket.on('join_driver_room', async (data) => {
       const driverId = typeof data === 'object' ? data.driverId : data;
       if (driverId) {
         socket.join(`driver_room_${driverId}`);
-        console.log(`Socket ${socket.id} joined driver_room_${driverId}`);
+        
+        // Track active driver rooms
+        if (!activeDriverRooms.has(driverId)) {
+          activeDriverRooms.set(driverId, []);
+        }
+        activeDriverRooms.get(driverId).push(socket.id);
+        
+        console.log(`[DRIVER ROOM] Socket ${socket.id} joined driver_room_${driverId}. Active: ${activeDriverRooms.get(driverId).length}`);
+        
+        // FALLBACK: Fetch and re-emit pending bookings for this driver
+        try {
+          const pendingBooking = await Booking.findOne({
+            where: {
+              driver_id: driverId,
+              status: 'pending'
+            },
+            include: [
+              { model: Company, attributes: ['name', 'phone', 'logo'] },
+              { model: Driver, attributes: ['full_name', 'driver_id', 'phone', 'photo'] },
+              { model: Ambulance, attributes: ['ambulance_number'] },
+            ],
+            order: [['created_at', 'DESC']],
+          });
+          
+          if (pendingBooking) {
+            console.log(`[DRIVER ROOM] Recovering pending booking ${pendingBooking.id} for driver ${driverId}`);
+            socket.emit('new_booking', pendingBooking);
+          } else {
+            console.log(`[DRIVER ROOM] No pending bookings for driver ${driverId}`);
+          }
+        } catch (err) {
+          console.error(`[DRIVER ROOM] Error recovering pending bookings for ${driverId}:`, err);
+        }
       }
     });
 
@@ -114,6 +153,22 @@ module.exports = (io) => {
 
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
+      
+      // Clean up driver room tracking
+      for (const [driverId, socketIds] of activeDriverRooms.entries()) {
+        const idx = socketIds.indexOf(socket.id);
+        if (idx !== -1) {
+          socketIds.splice(idx, 1);
+          console.log(`[DRIVER ROOM] Socket ${socket.id} left driver_room_${driverId}. Remaining: ${socketIds.length}`);
+          if (socketIds.length === 0) {
+            activeDriverRooms.delete(driverId);
+          }
+        }
+      }
     });
   });
+
+  // Expose helper for booking controller to verify room before emitting
+  return { activeDriverRooms };
 };
+

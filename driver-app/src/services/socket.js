@@ -11,22 +11,31 @@ class SocketService {
   }
 
   connect(driverId) {
-    if (this.socket) return this.socket;
+    if (this.socket && this.socket.connected) return this.socket;
     this.driverId = driverId;
 
     this.socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
     });
 
     this.socket.on('connect', () => {
       console.log('Driver Socket connected:', this.socket.id);
+      // CRITICAL: Always rejoin driver room on connect/reconnect
       if (this.driverId) {
         this.socket.emit('join_driver_room', { driverId: this.driverId });
+        console.log(`Driver ${this.driverId} rejoined driver_room_${this.driverId}`);
       }
       if (this.activeBookingId) {
         this.socket.emit('join_booking', this.activeBookingId);
       }
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('Driver Socket disconnected');
     });
 
     return this.socket;

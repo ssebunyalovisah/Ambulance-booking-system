@@ -122,9 +122,15 @@ exports.createBooking = async (req, res) => {
     // Broadcast "new_booking" directly to driver and admin monitor
     if (io) {
       if (resolvedDriverId) {
-        io.to(`driver_room_${resolvedDriverId}`).emit('new_booking', richBooking);
+        const driverRoomName = `driver_room_${resolvedDriverId}`;
+        console.log(`[NEW_BOOKING] Emitting to ${driverRoomName} for driver ${resolvedDriverId}`);
+        io.to(driverRoomName).emit('new_booking', richBooking);
+        console.log(`[NEW_BOOKING] Emitted booking ${booking.id} to ${driverRoomName}`);
       }
+      console.log(`[NEW_BOOKING] Emitting to admin_monitor for booking ${booking.id}`);
       io.to('admin_monitor').emit('new_booking', richBooking);
+    } else {
+      console.error('[NEW_BOOKING] ERROR: Socket.io instance not available!');
     }
 
     res.status(201).json(richBooking);
