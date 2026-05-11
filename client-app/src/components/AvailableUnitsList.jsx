@@ -25,7 +25,7 @@ export default function AvailableUnitsList({ ambulances, onSelect }) {
                         {hasAmbulances ? (
                             ambulances.map(amb => (
                                 <button 
-                                    key={amb.ambulance_id}
+                                    key={amb.id}
                                     onClick={() => onSelect(amb)}
                                     className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border-2 border-transparent hover:border-blue-100 active:border-blue-500 rounded-2xl transition-all text-left shadow-sm hover:shadow-md group"
                                 >

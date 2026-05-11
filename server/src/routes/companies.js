@@ -5,7 +5,7 @@ const auth = require('../middlewares/auth');
 
 router.use(auth);
 
-router.get('/', companyController.getAllCompanies);
+router.get('/', companyController.getCompanies);
 router.delete('/:id', companyController.deleteCompany);
 
 module.exports = router;

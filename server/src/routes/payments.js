@@ -6,5 +6,6 @@ const auth = require('../middlewares/auth');
 router.get('/', auth, paymentController.getAllPayments);
 router.patch('/:id/status', auth, paymentController.updatePaymentStatus);
 router.get('/transactions', auth, paymentController.getTransactionRecords);
+router.get('/status/:booking_id', paymentController.getPaymentStatusByBookingId);
 
 module.exports = router;

@@ -1,112 +1,67 @@
+// driver-app/src/services/socket.js
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://ambulance-booking-system-4ytj.onrender.com';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 class SocketService {
-    constructor() {
-        this.socket = null;
+  constructor() {
+    this.socket = null;
+    this.driverId = null;
+    this.activeBookingId = null;
+  }
+
+  connect(driverId) {
+    if (this.socket) return this.socket;
+    this.driverId = driverId;
+
+    this.socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+    });
+
+    this.socket.on('connect', () => {
+      console.log('Driver Socket connected:', this.socket.id);
+      if (this.driverId) {
+        this.socket.emit('join_driver_room', { driverId: this.driverId });
+      }
+      if (this.activeBookingId) {
+        this.socket.emit('join_booking', this.activeBookingId);
+      }
+    });
+
+    return this.socket;
+  }
+
+  joinBookingRoom(bookingId) {
+    this.activeBookingId = bookingId;
+    if (this.socket) {
+      this.socket.emit('join_booking', bookingId);
     }
+  }
 
-    connect() {
-        if (!this.socket) {
-            this.socket = io(SOCKET_URL, {
-                transports: ['websocket'],
-                reconnection: true,
-                reconnectionDelay: 1000,
-                reconnectionAttempts: 10
-            });
+  onNewBooking(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('new_booking', callback);
+  }
 
-            this.socket.on('connect', () => {
-                console.log('Driver socket connected:', this.socket.id);
-                // Re-join rooms if we have data
-                const companyId = localStorage.getItem('companyId');
-                if (companyId) this.joinDashboard(companyId);
-                
-                const driverDbId = localStorage.getItem('driverDbId');
-                if (driverDbId) this.joinDriverRoom(driverDbId);
-            });
+  onBookingUpdate(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('booking_status_update', callback);
+    this.socket.on('booking_cancelled', callback);
+  }
 
-            this.socket.on('disconnect', () => {
-                console.log('Driver socket disconnected');
-            });
-        } else if (this.socket.connected) {
-            // Already connected, join rooms immediately
-            const companyId = localStorage.getItem('companyId');
-            if (companyId) this.joinDashboard(companyId);
-            
-            const driverDbId = localStorage.getItem('driverDbId');
-            if (driverDbId) this.joinDriverRoom(driverDbId);
-        }
-        return this.socket;
+  onPatientLocation(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('patient_location_update', callback);
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
-
-    joinBookingRoom(bookingId) {
-        if (this.socket) {
-            this.socket.emit('join_booking', bookingId);
-        }
-    }
-
-    joinDashboard(companyId) {
-        if (this.socket && companyId) {
-            this.socket.emit('join_dashboard', { companyId });
-        }
-    }
-
-    joinDriverRoom(driverId) {
-        if (this.socket && driverId) {
-            this.socket.emit('join_driver_room', { driverId });
-        }
-    }
-
-    onNewBooking(callback) {
-        if (this.socket) {
-            this.socket.on('new_booking', callback);
-        }
-    }
-
-    onBookingUpdate(callback) {
-        if (this.socket) {
-            this.socket.on('booking_status_update', callback);
-        }
-    }
-
-    onPatientLocation(callback) {
-        if (this.socket) {
-            this.socket.on('patient_location_update', callback);
-        }
-    }
-
-    emitDriverLocation(data) {
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('driver_location_update', data);
-        }
-    }
-
-    emitAcceptBooking(bookingId) {
-        if (this.socket) {
-            this.socket.emit('driver_accepted', { bookingId });
-        }
-    }
-
-    emitDenyBooking(bookingId) {
-        if (this.socket) {
-            this.socket.emit('driver_denied', { bookingId });
-        }
-    }
-
-    emitTripCompleted(bookingId) {
-        if (this.socket) {
-            this.socket.emit('trip_completed', { bookingId });
-        }
-    }
-
-    disconnect() {
-        if (this.socket) {
-            this.socket.disconnect();
-            this.socket = null;
-        }
-    }
+  }
 }
 
-const socketService = new SocketService();
+export const socketService = new SocketService();
 export default socketService;

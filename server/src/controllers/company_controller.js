@@ -1,45 +1,38 @@
-const db = require('../config/db');
+// server/src/controllers/company_controller.js
+const { Company } = require('../models');
 
-exports.getAllCompanies = async (req, res) => {
-    const { role } = req.user;
-    if (role?.toLowerCase() !== 'super_admin') {
-        return res.status(403).json({ error: 'Access denied. Super Admin role required.' });
-    }
+exports.getCompanies = async (req, res) => {
+  try {
+    const companies = await Company.findAll({
+      order: [['name', 'ASC']],
+    });
+    res.json(companies);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error fetching companies' });
+  }
+};
 
-    try {
-        const result = await db.query('SELECT * FROM companies ORDER BY name ASC');
-        res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
+exports.getCompany = async (req, res) => {
+  try {
+    const company = await Company.findByPk(req.params.id);
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+    res.json(company);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
 
 exports.deleteCompany = async (req, res) => {
-    const { id } = req.params;
-    const { role } = req.user;
+  try {
+    const company = await Company.findByPk(req.params.id);
+    if (!company) return res.status(404).json({ error: 'Company not found' });
     
-    if (role?.toLowerCase() !== 'super_admin') {
-        return res.status(403).json({ error: 'Access denied. Super Admin role required.' });
-    }
-
-    try {
-        // Prevention: don't delete the company the super admin belongs to if they are signed in
-        if (id == req.user.company_id) {
-             return res.status(400).json({ error: 'Cannot delete the company you are currently assigned to.' });
-        }
-
-        // Delete associated records first (cascade manual cleanup)
-        // In a real DB with foreign keys + ON DELETE CASCADE, this might be automatic.
-        // We'll do it manually to be safe.
-        await db.query('DELETE FROM bookings WHERE company_id = $1', [id]);
-        await db.query('DELETE FROM ambulances WHERE company_id = $1', [id]);
-        await db.query('DELETE FROM admins WHERE company_id = $1', [id]);
-        await db.query('DELETE FROM companies WHERE id = $1', [id]);
-
-        res.json({ message: 'Company and all associated records deleted successfully.' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
+    await company.destroy();
+    res.json({ message: 'Company deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error deleting company' });
+  }
 };

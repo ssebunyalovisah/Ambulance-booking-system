@@ -1,69 +1,97 @@
-const db = require('../config/db');
+// server/src/controllers/payment_controller.js
+const { Payment, Booking } = require('../models');
 
 exports.getAllPayments = async (req, res) => {
-    try {
-        const companyId = req.user.company_id;
-        const result = await db.query(
-            `SELECT p.*, b.patient_name, b.phone_number, b.pickup_address 
-             FROM payments p 
-             JOIN bookings b ON p.booking_id = b.id 
-             WHERE b.company_id = $1 
-             ORDER BY p.payment_date DESC`,
-            [companyId]
-        );
-        res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
+  const { company_id } = req.user;
+  try {
+    const payments = await Payment.findAll({
+      include: [
+        {
+          model: Booking,
+          where: { company_id },
+          attributes: ['patient_name', 'phone'],
+        },
+      ],
+      order: [['payment_date', 'DESC']],
+    });
+    res.json(payments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error fetching payments' });
+  }
 };
 
 exports.updatePaymentStatus = async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body; // APPROVED, REJECTED
+  const { id } = req.params;
+  const { status } = req.body; // APPROVED, REJECTED
 
-    try {
-        const result = await db.query(
-            'UPDATE payments SET status = $1 WHERE id = $2',
-            [status, id]
-        );
+  try {
+    const payment = await Payment.findByPk(id);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Payment not found' });
-        }
+    await payment.update({ status });
 
-        // Also update booking payment status if approved
-        if (status === 'APPROVED') {
-            const payment = await db.query('SELECT booking_id FROM payments WHERE id = $1', [id]);
-            if (payment.rows[0]) {
-                await db.query(
-                    'UPDATE bookings SET payment_status = $1 WHERE id = $2',
-                    ['PAID', payment.rows[0].booking_id]
-                );
-            }
-        }
-
-        res.json({ message: `Payment status updated to ${status}` });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
+    // Sync booking payment status
+    if (status === 'APPROVED') {
+      await Booking.update(
+        { payment_status: 'paid' },
+        { where: { id: payment.booking_id } }
+      );
     }
+
+    res.json({ message: `Payment status updated to ${status}`, payment });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
 
 exports.getTransactionRecords = async (req, res) => {
-    try {
-        const companyId = req.user.company_id;
-        const result = await db.query(
-            `SELECT p.*, b.total_amount, b.patient_name 
-             FROM payments p 
-             JOIN bookings b ON p.booking_id = b.id 
-             WHERE b.company_id = $1 AND p.status = 'APPROVED'
-             ORDER BY p.payment_date DESC`,
-            [companyId]
-        );
-        res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
+  const { company_id } = req.user;
+  try {
+    const payments = await Payment.findAll({
+      where: { status: 'APPROVED' },
+      include: [
+        {
+          model: Booking,
+          where: { company_id },
+          attributes: ['patient_name'],
+        },
+      ],
+      order: [['payment_date', 'DESC']],
+    });
+    res.json(payments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+exports.getPaymentStatusByBookingId = async (req, res) => {
+  const { booking_id } = req.params;
+  try {
+    const payment = await Payment.findOne({
+      where: { booking_id },
+      order: [['created_at', 'DESC']]
+    });
+    
+    if (!payment) return res.json({ status: 'PENDING' });
+    
+    // Map internal status to frontend expected status (COMPLETED, FAILED)
+    const statusMap = {
+      'APPROVED': 'COMPLETED',
+      'COMPLETED': 'COMPLETED',
+      'REJECTED': 'FAILED',
+      'FAILED': 'FAILED'
+    };
+    
+    res.json({ 
+      status: statusMap[payment.status] || 'PENDING',
+      amount: payment.amount,
+      transaction_id: payment.transaction_id
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 };

@@ -1,123 +1,121 @@
-const db = require('../config/db');
+// server/src/controllers/report_controller.js
+const { Booking, Company, Driver, Ambulance, sequelize } = require('../models');
+const { Op } = require('sequelize');
 
 exports.getReportsData = async (req, res) => {
-    const { company_id, role } = req.user;
-    const { 
-        reportType, 
-        startDate, 
-        endDate, 
-        ambulanceId, 
-        driverId, 
-        status, 
-        paymentStatus 
-    } = req.query;
+  const { company_id, role } = req.user;
+  const { reportType, startDate, endDate } = req.query;
 
-    try {
-        let baseFilter = 'WHERE company_id = $1';
-        let params = [company_id];
-        let paramIndex = 2;
-
-        if (role === 'SUPER_ADMIN') {
-            baseFilter = 'WHERE 1=1';
-            params = [];
-            paramIndex = 1;
-        }
-
-        let dateFilter = '';
-        if (startDate && endDate) {
-            dateFilter = ` AND created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-            params.push(new Date(startDate).toISOString(), new Date(endDate).toISOString());
-            paramIndex += 2;
-        }
-
-        let data = {};
-
-        switch (reportType) {
-            case 'BOOKING_SUMMARY':
-                const bookingStats = await db.query(
-                    `SELECT status, COUNT(*) as count FROM bookings ${baseFilter} ${dateFilter} GROUP BY status`,
-                    params
-                );
-                const timeline = await db.query(
-                    `SELECT DATE(created_at) as date, COUNT(*) as count FROM bookings ${baseFilter} ${dateFilter} GROUP BY DATE(created_at) ORDER BY date`,
-                    params
-                );
-                data = { stats: bookingStats.rows, timeline: timeline.rows };
-                break;
-
-            case 'REVENUE':
-                const revenueTimeline = await db.query(
-                    `SELECT DATE(created_at) as date, SUM(total_amount) as amount FROM bookings ${baseFilter} AND payment_status = 'PAID' ${dateFilter} GROUP BY DATE(created_at) ORDER BY date`,
-                    params
-                );
-                const totalRevenue = await db.query(
-                    `SELECT SUM(total_amount) as total FROM bookings ${baseFilter} AND payment_status = 'PAID' ${dateFilter}`,
-                    params
-                );
-                data = { timeline: revenueTimeline.rows, total: totalRevenue.rows[0]?.total || 0 };
-                break;
-
-            case 'AMBULANCE_UTILIZATION':
-                const utilization = await db.query(
-                    `SELECT a.ambulance_number, COUNT(b.id) as total_bookings, 
-                    SUM(CASE WHEN b.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_bookings
-                    FROM ambulances a
-                    LEFT JOIN bookings b ON a.id = b.ambulance_id
-                    ${baseFilter.replace('company_id', 'a.company_id')} ${dateFilter.replace('created_at', 'b.created_at')}
-                    GROUP BY a.id, a.ambulance_number`,
-                    params
-                );
-                data = { utilization: utilization.rows };
-                break;
-
-            case 'DRIVER_PERFORMANCE':
-                const performance = await db.query(
-                    `SELECT a.driver_name, COUNT(b.id) as trips, 
-                    AVG(f.rating) as avg_rating
-                    FROM ambulances a
-                    LEFT JOIN bookings b ON a.id = b.ambulance_id
-                    LEFT JOIN feedback f ON b.id = f.booking_id
-                    ${baseFilter.replace('company_id', 'a.company_id')} ${dateFilter.replace('created_at', 'b.created_at')}
-                    GROUP BY a.id, a.driver_name`,
-                    params
-                );
-                data = { performance: performance.rows };
-                break;
-
-            case 'FEEDBACK':
-                const ratings = await db.query(
-                    `SELECT rating, COUNT(*) as count FROM feedback f
-                    JOIN bookings b ON f.booking_id = b.id
-                    ${baseFilter.replace('company_id', 'b.company_id')} ${dateFilter.replace('created_at', 'f.created_at')}
-                    GROUP BY rating`,
-                    params
-                );
-                const recentFeedback = await db.query(
-                    `SELECT f.*, b.patient_name FROM feedback f
-                    JOIN bookings b ON f.booking_id = b.id
-                    ${baseFilter.replace('company_id', 'b.company_id')} ${dateFilter.replace('created_at', 'f.created_at')}
-                    ORDER BY f.created_at DESC LIMIT 50`,
-                    params
-                );
-                data = { ratings: ratings.rows, list: recentFeedback.rows };
-                break;
-
-            case 'RESPONSE_TIME':
-                // Simplified response time calculation: difference between creation and acceptance
-                // (Note: This assumes we have timestamps for status changes, which we don't explicitly have in the schema 
-                // but we can estimate or suggest adding a status_history table in production)
-                // For now, we'll return a placeholder or average if created_at and updated_at were present.
-                // Since we only have created_at, we'll return a mock trend or empty for now.
-                data = { message: "Detailed response time tracking requires status transition logs." };
-                break;
-
-            default:
-                return res.status(400).json({ error: 'Invalid report type' });
-        }
-
-        res.json(data);
-    } catch (err) {
-        console.error('Report generation error:', err);
-        res.status(500).json({ error: 'Failed to generate report' });
+  try {
+    const where = {};
+    if (role !== 'super_admin') {
+      where.company_id = company_id;
     }
+
+    if (startDate && endDate) {
+      where.created_at = {
+        [Op.between]: [new Date(startDate), new Date(endDate)],
+      };
+    }
+
+    let data = {};
+
+    switch (reportType) {
+      case 'BOOKING_SUMMARY':
+        data.stats = await Booking.findAll({
+          where,
+          attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+          group: ['status'],
+        });
+        
+        data.timeline = await Booking.findAll({
+          where,
+          attributes: [
+            [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+          ],
+          group: [sequelize.fn('DATE', sequelize.col('created_at'))],
+          order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'ASC']],
+        });
+        break;
+
+      case 'REVENUE':
+        data.total = await Booking.sum('price', {
+          where: { ...where, payment_status: 'paid' },
+        }) || 0;
+
+        data.timeline = await Booking.findAll({
+          where: { ...where, payment_status: 'paid' },
+          attributes: [
+            [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
+            [sequelize.fn('SUM', sequelize.col('price')), 'amount'],
+          ],
+          group: [sequelize.fn('DATE', sequelize.col('created_at'))],
+          order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'ASC']],
+        });
+        break;
+
+      case 'AMBULANCE_UTILIZATION':
+        data.utilization = await Ambulance.findAll({
+          where: role !== 'super_admin' ? { company_id } : {},
+          attributes: [
+            'ambulance_number',
+            [sequelize.fn('COUNT', sequelize.col('Bookings.id')), 'total_bookings'],
+          ],
+          include: [{
+            model: Booking,
+            attributes: [],
+            where: startDate && endDate ? {
+                created_at: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+            } : {},
+            required: false
+          }],
+          group: ['Ambulance.id', 'Ambulance.ambulance_number'],
+        });
+        break;
+
+      case 'DRIVER_PERFORMANCE':
+        data.performance = await Driver.findAll({
+          where: role !== 'super_admin' ? { company_id } : {},
+          attributes: [
+            'full_name',
+            [sequelize.fn('COUNT', sequelize.col('Bookings.id')), 'trips'],
+            [sequelize.fn('AVG', sequelize.col('Bookings.rating')), 'avg_rating'],
+          ],
+          include: [{
+            model: Booking,
+            attributes: [],
+            where: startDate && endDate ? {
+                created_at: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+            } : {},
+            required: false
+          }],
+          group: ['Driver.id', 'Driver.full_name'],
+        });
+        break;
+
+      case 'FEEDBACK':
+        data.ratings = await Booking.findAll({
+          where: { ...where, rating: { [Op.ne]: null } },
+          attributes: ['rating', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+          group: ['rating'],
+        });
+
+        data.list = await Booking.findAll({
+          where: { ...where, feedback: { [Op.ne]: null } },
+          attributes: ['patient_name', 'rating', 'feedback', 'created_at'],
+          limit: 50,
+          order: [['created_at', 'DESC']],
+        });
+        break;
+
+      default:
+        return res.status(400).json({ error: 'Invalid report type' });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('Report generation error:', err);
+    res.status(500).json({ error: 'Failed to generate report' });
+  }
 };

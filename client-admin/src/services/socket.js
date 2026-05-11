@@ -1,144 +1,104 @@
+// client-admin/src/services/socket.js
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://ambulance-booking-system-4ytj.onrender.com';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 class AdminSocketService {
-    constructor() {
-        this.socket = null;
-    }
+  constructor() {
+    this.socket = null;
+  }
 
-    connect(data) {
-        if (!this.socket) {
-            this.socket = io(SOCKET_URL, {
-                transports: ['websocket'],
-                reconnection: true,
-                reconnectionDelay: 1000,
-                reconnectionAttempts: 10,
-            });
-            this.socket.on('connect', () => {
-                console.log('Admin socket connected');
-                // Re-join all rooms on connect/reconnect (v3 spec)
-                if (data) this.socket.emit('join_dashboard', data);
-                this.socket.emit('join_admin_monitor');
-            });
-        } else {
-            if (data) this.socket.emit('join_dashboard', data);
-            this.socket.emit('join_admin_monitor');
-        }
-        return this.socket;
-    }
+  connect() {
+    if (this.socket) return this.socket;
 
-    joinAdminMonitor() {
-        if (this.socket) this.socket.emit('join_admin_monitor');
-    }
+    this.socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+    });
 
-    onNewBooking(callback) {
-        if (this.socket) {
-            this.socket.on('new_booking', callback);
-        }
-    }
+    this.socket.on('connect', () => {
+      console.log('Admin Socket connected:', this.socket.id);
+      this.socket.emit('join_admin_monitor');
+    });
 
-    onDriverLocation(callback) {
-        if (this.socket) {
-            this.socket.on('driver_location_update', callback);
-        }
-    }
+    return this.socket;
+  }
 
-    onPatientLocation(callback) {
-        if (this.socket) {
-            this.socket.on('patient_location_update', callback);
-        }
-    }
+  onNewBooking(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('new_booking', callback);
+  }
 
-    onBookingStatusUpdate(callback) {
-        if (this.socket) {
-            // These are all the events that indicate a booking status change in the spec
-            const events = [
-                'booking_assigned',
-                'booking_accepted',
-                'ambulance_dispatched',
-                'driver_arrived',
-                'trip_completed',
-                'booking_cancelled',
-                'driver_denied',
-                'booking_status_update',
-                'driver_status_changed'
-            ];
-            
-            events.forEach(evt => {
-                this.socket.on(evt, callback);
-            });
-        }
-    }
+  offNewBooking(callback) {
+    if (this.socket) this.socket.off('new_booking', callback);
+  }
 
-    onAmbulanceStatusUpdate(callback) {
-        if (this.socket) {
-            this.socket.on('ambulance_status_changed', callback);
-        }
-    }
+  onBookingUpdate(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('booking_status_update', callback);
+    this.socket.on('booking_cancelled', callback);
+    this.socket.on('trip_completed', callback);
+  }
 
-    onDriverStatusUpdate(callback) {
-        if (this.socket) {
-            // Listen to both event names for compatibility
-            this.socket.on('driver_status_changed', callback);
-            this.socket.on('driver_status_update', callback);  // v3 canonical event
-        }
-    }
-    
-    offBookingStatusUpdate(callback) {
-        if (this.socket) {
-            const events = [
-                'booking_assigned',
-                'booking_accepted',
-                'ambulance_dispatched',
-                'driver_arrived',
-                'trip_completed',
-                'booking_cancelled',
-                'driver_denied',
-                'booking_status_update',
-                'driver_status_changed'
-            ];
-            events.forEach(evt => this.socket.off(evt, callback));
-        }
-    }
+  onBookingStatusUpdate(callback) {
+    this.onBookingUpdate(callback);
+  }
 
-    offAmbulanceStatusUpdate(callback) {
-        if (this.socket) {
-            this.socket.off('ambulance_status_changed', callback);
-        }
+  offBookingStatusUpdate(callback) {
+    if (this.socket) {
+      this.socket.off('booking_status_update', callback);
+      this.socket.off('booking_cancelled', callback);
+      this.socket.off('trip_completed', callback);
     }
+  }
 
-    offDriverStatusUpdate(callback) {
-        if (this.socket) {
-            this.socket.off('driver_status_changed', callback);
-            this.socket.off('driver_status_update', callback);
-        }
-    }
+  onDriverUpdate(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('driver_status_update', callback);
+  }
 
-    offNewBooking(callback) {
-        if (this.socket) {
-            this.socket.off('new_booking', callback);
-        }
-    }
+  onDriverStatusUpdate(callback) {
+    this.onDriverUpdate(callback);
+  }
 
-    offDriverLocation(callback) {
-        if (this.socket) {
-            this.socket.off('driver_location_update', callback);
-        }
-    }
+  offDriverStatusUpdate(callback) {
+    if (this.socket) this.socket.off('driver_status_update', callback);
+  }
 
-    offPatientLocation(callback) {
-        if (this.socket) {
-            this.socket.off('patient_location_update', callback);
-        }
+  onAmbulanceStatusUpdate(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('ambulance_status_changed', callback);
+  }
+
+  offAmbulanceStatusUpdate(callback) {
+    if (this.socket) this.socket.off('ambulance_status_changed', callback);
+  }
+
+  onAmbulanceLocation(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('ambulance_location_update', callback);
+  }
+
+  onDriverLocation(callback) {
+    this.onAmbulanceLocation(callback);
+  }
+
+  offDriverLocation(callback) {
+    if (this.socket) this.socket.off('ambulance_location_update', callback);
+  }
+
+  onPatientLocation(callback) {
+    if (!this.socket) this.connect();
+    this.socket.on('patient_location_update', callback);
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
-    
-    disconnect() {
-        if (this.socket) {
-            this.socket.disconnect();
-            this.socket = null;
-        }
-    }
+  }
 }
 
 export const adminSocket = new AdminSocketService();
+export default adminSocket;
