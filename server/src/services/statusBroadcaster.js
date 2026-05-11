@@ -16,28 +16,38 @@ const broadcastBookingStatus = (io, booking) => {
   };
 
   // 1. Emit to shared booking room (Client + Admin tracking)
-  io.to(`room:booking_${booking.id}`).emit('booking_status_update', payload);
+  const room = `room:booking_${booking.id}`;
+  io.to(room).emit('booking_status_update', payload);
+  console.log(`[Status Sync] Emitted status ${booking.status} to room ${room}`);
 
   // 2. Emit to assigned driver's private room
   if (booking.driver_id) {
-    io.to(`driver_room_${booking.driver_id}`).emit('booking_status_update', payload);
+    const driverRoom = `driver_room_${booking.driver_id}`;
+    io.to(driverRoom).emit('booking_status_update', payload);
+    console.log(`[Status Sync] Emitted status ${booking.status} to driver room ${driverRoom}`);
   }
 
   // 3. Emit to admin monitor room
   io.to('admin_monitor').emit('booking_status_update', payload);
+  console.log(`[Status Sync] Emitted status ${booking.status} to admin_monitor`);
 
   // Special cases for cancellation and completion
   if (booking.status === 'cancelled') {
     io.to(`room:booking_${booking.id}`).emit('booking_cancelled', payload);
+    console.log(`[Status Sync] Emitted booking_cancelled to room:booking_${booking.id}`);
     if (booking.driver_id) {
         io.to(`driver_room_${booking.driver_id}`).emit('booking_cancelled', payload);
+        console.log(`[Status Sync] Emitted booking_cancelled to driver_room_${booking.driver_id}`);
     }
     io.to('admin_monitor').emit('booking_cancelled', payload);
+    console.log(`[Status Sync] Emitted booking_cancelled to admin_monitor`);
   }
 
   if (booking.status === 'completed') {
     io.to(`room:booking_${booking.id}`).emit('trip_completed', payload);
+    console.log(`[Status Sync] Emitted trip_completed to room:booking_${booking.id}`);
     io.to('admin_monitor').emit('trip_completed', payload);
+    console.log(`[Status Sync] Emitted trip_completed to admin_monitor`);
   }
 };
 

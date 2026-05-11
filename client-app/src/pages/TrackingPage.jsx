@@ -20,13 +20,17 @@ export default function TrackingPage({ onCancel }) {
             <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200">
               <Activity className="w-6 h-6 text-white animate-pulse" />
             </div>
-            <div>
+            <div className="overflow-hidden">
               <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Emergency Tracking</p>
-              <h1 className="text-slate-900 font-black text-xl tracking-tight">{displayStatus}</h1>
+              <h1 className="text-slate-900 font-black text-xl tracking-tight truncate">{displayStatus}</h1>
             </div>
           </div>
-          {['pending', 'accepted'].includes(bookingStatus) && (
-            <button onClick={onCancel} className="bg-red-50 hover:bg-red-100 text-red-600 p-3 rounded-2xl transition-all">
+          {['pending', 'accepted', 'dispatched', 'arrived'].includes(bookingStatus || 'pending') && (
+            <button 
+              onClick={onCancel} 
+              className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-2xl transition-all flex items-center gap-2"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest hidden xs:block">Cancel</span>
               <X className="w-5 h-5" />
             </button>
           )}

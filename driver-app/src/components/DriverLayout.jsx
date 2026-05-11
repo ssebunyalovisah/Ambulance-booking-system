@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socket.js';
-import { acceptBooking, denyBooking, timeoutBooking, getActiveBooking } from '../services/api.js';
+import { acceptBooking, denyBooking, timeoutBooking, getActiveBooking, getMe } from '../services/api.js';
 import useTripStore from '../store/useTripStore.js';
 import useDriverLocation from '../hooks/useDriverLocation.js';
 import { Bell, X, Check, MapPin, User, Clock } from 'lucide-react';
@@ -23,6 +23,18 @@ const DriverLayout = ({ children }) => {
 
   // Socket Connection & Reconciliation
   useEffect(() => {
+    // 1. Check for tokens in URL (Smart Login Redirect)
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    const urlRefresh = params.get('refresh');
+
+    if (urlToken) {
+      localStorage.setItem('accessToken', urlToken);
+      if (urlRefresh) localStorage.setItem('refreshToken', urlRefresh);
+      // Clean up URL to prevent token leakage
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
@@ -30,10 +42,29 @@ const DriverLayout = ({ children }) => {
     const socket = socketService.connect(driverId);
 
     const reconcile = async () => {
-      if (!driverId) return;
+      // Re-fetch current driver state if we have a token but no local ID yet
+      let currentDriverId = driverId;
+      if (!currentDriverId) {
+        try {
+          const { data: me } = await getMe();
+          currentDriverId = me.id;
+          localStorage.setItem('driverDbId', me.id);
+          localStorage.setItem('driverName', me.name);
+          localStorage.setItem('driverId', me.driver_id);
+          // Reconnect with proper ID
+          socketService.connect(me.id);
+        } catch (err) {
+          console.error('Failed to fetch self:', err);
+          return;
+        }
+      }
+
       try {
-        const { data: activeTrip } = await getActiveBooking(driverId);
+        const { data: activeTrip } = await getActiveBooking(currentDriverId);
         if (activeTrip) {
+          // Join the booking room to receive status updates
+          socketService.joinBookingRoom(activeTrip.id);
+          
           if (activeTrip.status === 'pending') {
             setCurrentRequest(activeTrip);
             setTimeLeft(TIMEOUT_SECONDS);
