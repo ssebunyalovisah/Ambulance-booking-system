@@ -7,6 +7,9 @@
     "dev:server": "cd server && npm run dev",
     "dev:app": "cd client-app && npm run dev",
     "dev:admin": "cd client-admin && npm run dev",
-    "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:app\" \"npm run dev:admin\""
+    "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:app\" \"npm run dev:admin\"",
+    "env:dev": "node env-switch.js dev",
+    "env:prod": "node env-switch.js prod",
+    "env:toggle": "node env-switch.js toggle"
   }
 }

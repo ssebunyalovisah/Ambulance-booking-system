@@ -1,8 +1,9 @@
 // client-admin/src/pages/Login.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2, Ambulance, Eye, EyeOff, Shield } from 'lucide-react';
+import api from '../services/api';
 
 const Login = () => {
   const [identifier, setIdentifier] = useState('');
@@ -57,12 +58,24 @@ const Login = () => {
       const cleanId = identifier.trim();
       if (cleanId.includes('@')) {
         await login(cleanId, password, rememberMe);
+        navigate('/');
       } else if (cleanId.startsWith('DRV-')) {
-        await loginDriver(cleanId, displayName, rememberMe);
+        const result = await loginDriver(cleanId, displayName, rememberMe);
+        console.log('[Smart Login] Driver Auth Success:', result);
+        
+        const { accessToken, refreshToken } = result || {};
+        const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || 'http://localhost:5175';
+        
+        // Ensure we don't pass 'undefined' strings
+        const tokenParam = accessToken ? `token=${accessToken}` : '';
+        const refreshParam = refreshToken ? `&refresh=${refreshToken}` : '';
+        
+        const targetUrl = `${driverAppUrl.replace(/\/$/, '')}/?${tokenParam}${refreshParam}`;
+        console.log('[Smart Login] Redirecting to:', targetUrl);
+        window.location.href = targetUrl;
       } else {
         throw new Error('Please enter a valid email or Driver ID');
       }
-      navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Invalid credentials');
     } finally {
@@ -136,38 +149,42 @@ const Login = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Security Key / Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 text-white pl-12 pr-12 py-4 rounded-2xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+            {!identifier.trim().startsWith('DRV-') && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Security Key / Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 text-white pl-12 pr-12 py-4 rounded-2xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all"
+                    placeholder="••••••••"
+                    required={!identifier.trim().startsWith('DRV-')}
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 cursor-pointer group">
                 <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-orange-600 focus:ring-orange-500" />
                 <span className="text-slate-400 group-hover:text-slate-300 transition-colors">Remember me</span>
               </label>
-              <Link to="/forgot-password" title="Recover Password" className="text-orange-500 hover:text-orange-400 font-bold">Forgot Password?</Link>
+              {!identifier.trim().startsWith('DRV-') && (
+                <Link to="/forgot-password" title="Recover Password" className="text-orange-500 hover:text-orange-400 font-bold">Forgot Password?</Link>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={isLoading || (identifier.startsWith('DRV-') && !displayName)}
+              disabled={isLoading || (identifier.trim().startsWith('DRV-') && !displayName)}
               className="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-2"
             >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SECURE SIGN IN'}
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (identifier.trim().startsWith('DRV-') ? 'DRIVER SECURE SIGN IN' : 'SECURE SIGN IN')}
             </button>
           </form>
 

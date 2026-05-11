@@ -12,6 +12,42 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  // Handle seamless login from Admin Dashboard (token passed via URL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const refresh = params.get('refresh');
+
+    if (token && token !== 'undefined') {
+      const syncSession = async () => {
+        try {
+          localStorage.setItem('accessToken', token);
+          if (refresh && refresh !== 'undefined') {
+            localStorage.setItem('refreshToken', refresh);
+          }
+
+          // Fetch full profile to populate localStorage
+          const { getMe } = await import('../services/api.js');
+          const { data: user } = await getMe();
+
+          localStorage.setItem('role', user.role);
+          localStorage.setItem('driverDbId', user.id);
+          localStorage.setItem('companyId', user.company_id);
+
+          // Clean the URL so the token isn't visible/reused
+          window.history.replaceState({}, '', '/');
+
+          socketService.connect(user.id);
+          navigate('/requests');
+        } catch (err) {
+          console.error('Seamless login failed', err);
+          setError('Automatic login failed. Please sign in manually.');
+        }
+      };
+      syncSession();
+    }
+  }, [navigate]);
+
   // Smart Login: Auto-verify Driver ID
   useEffect(() => {
     const verify = async () => {

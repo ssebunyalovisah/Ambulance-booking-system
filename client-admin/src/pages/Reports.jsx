@@ -59,26 +59,27 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    fetchReportData();
-  }, [reportType]);
-
-  useEffect(() => {
     if (filters.startDate && filters.endDate) {
       fetchReportData();
     }
-  }, [filters.startDate, filters.endDate]);
+  }, [reportType, filters.startDate, filters.endDate]);
 
   const handleExportPDF = async () => {
+    const title = REPORT_TYPES.find(t => t.id === reportType)?.label || reportType;
     const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text(`${REPORT_TYPES.find(t => t.id === reportType)?.label} - RescueAdmin`, 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-    doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 35);
+    doc.setFillColor('#f97316');
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setFontSize(16);
+    doc.setTextColor('#ffffff');
+    doc.text(title, 14, 20);
+    doc.setFontSize(9);
+    doc.setTextColor('#ffffff');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    doc.setTextColor('#334155');
+    doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 38);
 
     let yPosition = 45;
 
-    // Capture and add charts
     const chartIds = [];
     if (reportType === 'BOOKING_SUMMARY') {
       chartIds.push('chart-1', 'chart-2');
@@ -86,49 +87,51 @@ export default function Reports() {
       chartIds.push('chart-3');
     } else if (reportType === 'DRIVER_PERFORMANCE') {
       chartIds.push('chart-4');
+    } else if (reportType === 'FEEDBACK') {
+      chartIds.push('chart-1');
+    } else if (reportType === 'RESPONSE_TIME') {
+      chartIds.push('chart-4');
     }
 
     for (const chartId of chartIds) {
       const chartElement = document.getElementById(chartId);
-      if (chartElement) {
-        try {
-          const canvas = await html2canvas(chartElement, { scale: 2 });
-          const imgData = canvas.toDataURL('image/png');
-          const imgWidth = 180;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-          if (yPosition + imgHeight > 280) {
-            doc.addPage();
-            yPosition = 20;
-          }
-          doc.addImage(imgData, 'PNG', 15, yPosition, imgWidth, imgHeight);
-          yPosition += imgHeight + 10;
-        } catch (error) {
-          console.error('Error capturing chart:', error);
+      if (!chartElement) continue;
+      try {
+        const canvas = await html2canvas(chartElement, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = 180;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        if (yPosition + imgHeight > 280) {
+          doc.addPage();
+          yPosition = 20;
         }
+        doc.addImage(imgData, 'PNG', 15, yPosition, imgWidth, imgHeight);
+        yPosition += imgHeight + 10;
+      } catch (error) {
+        console.error('Error capturing chart:', error);
       }
     }
 
-    // Add table data
     let tableData = [];
     let columns = [];
 
     if (reportType === 'BOOKING_SUMMARY') {
-      columns = ["Status", "Count"];
+      columns = ['Status', 'Count'];
       tableData = data?.stats.map(s => [s.status, s.count]) || [];
     } else if (reportType === 'REVENUE') {
-      columns = ["Date", "Amount"];
-      tableData = data?.timeline.map(t => [t.date, `$${t.amount}`]) || [];
+      columns = ['Date', 'Amount'];
+      tableData = data?.timeline.map(t => [t.date, `$${t.amount.toLocaleString()}`]) || [];
     } else if (reportType === 'AMBULANCE_UTILIZATION') {
-      columns = ["Ambulance #", "Total Bookings", "Completed"];
-      tableData = data?.utilization.map(u => [u.ambulance_number, u.total_bookings, u.completed_bookings]) || [];
+      columns = ['Ambulance #', 'Total Bookings'];
+      tableData = data?.utilization.map(u => [u.ambulance_number, u.total_bookings]) || [];
     } else if (reportType === 'DRIVER_PERFORMANCE') {
-      columns = ["Driver Name", "Trips"];
-      tableData = data?.performance.map(p => [p.driver_name, p.trips]) || [];
+      columns = ['Driver Name', 'Trips', 'Avg Rating'];
+      tableData = data?.performance.map(p => [p.driver_name, p.trips, p.avg_rating]) || [];
     } else if (reportType === 'FEEDBACK') {
-      columns = ["Rating", "Count"];
+      columns = ['Rating', 'Count'];
       tableData = data?.feedback?.map(f => [f.rating, f.count]) || [];
     } else if (reportType === 'RESPONSE_TIME') {
-      columns = ["Time Range", "Count"];
+      columns = ['Time Range', 'Count'];
       tableData = data?.response_times?.map(r => [r.range, r.count]) || [];
     }
 
@@ -141,8 +144,9 @@ export default function Reports() {
         startY: yPosition,
         head: [columns],
         body: tableData,
-        theme: 'striped',
-        headStyles: { fillStyle: '#f97316' }
+        theme: 'grid',
+        headStyles: { fillColor: '#f97316', textColor: '#ffffff' },
+        styles: { fontSize: 8 },
       });
     }
 
@@ -157,24 +161,47 @@ export default function Reports() {
       exportData = data?.stats || [];
       sheetName = 'Booking Summary';
     } else if (reportType === 'REVENUE') {
-      exportData = data?.timeline || [];
+      exportData = data?.timeline?.map(row => ({
+        Date: row.date,
+        Amount: row.amount,
+      })) || [];
       sheetName = 'Revenue Timeline';
     } else if (reportType === 'AMBULANCE_UTILIZATION') {
-      exportData = data?.utilization || [];
+      exportData = data?.utilization?.map(row => ({
+        Ambulance: row.ambulance_number,
+        TotalBookings: row.total_bookings,
+      })) || [];
       sheetName = 'Ambulance Utilization';
     } else if (reportType === 'DRIVER_PERFORMANCE') {
-      exportData = data?.performance || [];
+      exportData = data?.performance?.map(row => ({
+        Driver: row.driver_name,
+        Trips: row.trips,
+        AvgRating: row.avg_rating,
+      })) || [];
       sheetName = 'Driver Performance';
     } else if (reportType === 'FEEDBACK') {
-      exportData = data?.feedback || [];
+      exportData = data?.feedback?.map(row => ({
+        Rating: row.rating,
+        Count: row.count,
+      })) || [];
       sheetName = 'Feedback';
     } else if (reportType === 'RESPONSE_TIME') {
-      exportData = data?.response_times || [];
+      exportData = data?.response_times?.map(row => ({
+        Range: row.range,
+        Count: row.count,
+      })) || [];
       sheetName = 'Response Times';
     }
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws['!cols'] = Object.keys(exportData[0] || {}).map(key => ({ wch: Math.max(key.length + 5, 15) }));
+    if (Object.keys(ws).length > 0 && ws['A1']) {
+      ws['A1'].s = {
+        fill: { fgColor: { rgb: 'F97316' } },
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+      };
+    }
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, `RescueReport_${reportType}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
@@ -263,23 +290,91 @@ export default function Reports() {
                 </div>
             </div>
         );
-        case 'DRIVER_PERFORMANCE':
-            return (
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-4">
-                    <h3 className="text-lg font-bold text-slate-900 mb-6">Trips per Driver</h3>
-                    <div className="h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={data.performance}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                                <XAxis type="number" fontSize={10} />
-                                <YAxis dataKey="driver_name" type="category" fontSize={10} width={100} />
-                                <Tooltip />
-                                <Bar dataKey="trips" fill="#3b82f6" radius={[0, 6, 6, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+      case 'DRIVER_PERFORMANCE':
+        return (
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-4">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-slate-900">Trips per Driver</h3>
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                        Top performers in the selected date range
+                    </span>
                 </div>
-            );
+                <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={data.performance}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                            <XAxis type="number" fontSize={10} />
+                            <YAxis dataKey="driver_name" type="category" fontSize={10} width={120} />
+                            <Tooltip />
+                            <Bar dataKey="trips" fill="#3b82f6" radius={[0, 6, 6, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        );
+      case 'FEEDBACK':
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-1">
+              <h3 className="text-lg font-bold text-slate-900 mb-6">Feedback Rating Distribution</h3>
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.feedback}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="count"
+                      nameKey="rating"
+                    >
+                      {data.feedback?.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900 mb-6">Feedback Summary</h3>
+              <div className="space-y-3">
+                {data.feedback?.map((item) => (
+                  <div key={item.rating} className="flex items-center justify-between gap-4 bg-slate-50 p-4 rounded-3xl">
+                    <span className="font-bold text-slate-800">Rating {item.rating}</span>
+                    <span className="text-sm font-black text-orange-600">{item.count} reviews</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      case 'RESPONSE_TIME':
+        return (
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm" id="chart-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-slate-900">Response Time Distribution</h3>
+              <div className="text-xs font-black uppercase tracking-widest text-slate-500">
+                {data.total || 0} completed response cases
+              </div>
+            </div>
+            <div className="h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.response_times}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="range" fontSize={10} />
+                  <YAxis fontSize={10} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
       default:
         return (
             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400">
@@ -291,13 +386,14 @@ export default function Reports() {
 
   return (
     <div className="p-4 md:p-8 w-full max-h-screen">
+      <style>{`@media print { .no-print { display: none !important; } .print-only { display: block !important; } body { background: #ffffff; } }`}</style>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Reports & Analytics</h1>
           <p className="text-slate-500 font-medium mt-1">Operational and financial insights for your company.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 no-print">
             <button 
                 onClick={handleExportPDF}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
@@ -320,7 +416,7 @@ export default function Reports() {
       </div>
 
       {/* Main Filter Toolbar */}
-      <div className="bg-white/50 backdrop-blur-md sticky top-0 z-20 p-4 rounded-3xl border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row items-center gap-4">
+      <div className="bg-white/50 backdrop-blur-md sticky top-0 z-20 p-4 rounded-3xl border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row items-center gap-4 no-print">
         <div className="flex-1 w-full relative">
             <label className="absolute -top-2 left-4 px-1 bg-white text-[10px] font-black uppercase text-slate-400">Report Type</label>
             <select 
@@ -394,8 +490,7 @@ export default function Reports() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {/* Generic Row mapping based on type */}
-                            {reportType === 'BOOKING_SUMMARY' && data?.stats.map(s => (
+                            {reportType === 'BOOKING_SUMMARY' && data?.stats?.map(s => (
                                 <tr key={s.status} className="hover:bg-slate-50/30 transition">
                                     <td className="px-6 py-4 font-bold text-slate-700 capitalize">{s.status.toLowerCase()}</td>
                                     <td className="px-6 py-4">
@@ -408,17 +503,45 @@ export default function Reports() {
                                     </td>
                                 </tr>
                             ))}
-                            {reportType === 'REVENUE' && data?.timeline.map(t => (
+                            {reportType === 'REVENUE' && data?.timeline?.map(t => (
                                 <tr key={t.date} className="hover:bg-slate-50/30 transition">
                                     <td className="px-6 py-4 font-bold text-slate-700">{new Date(t.date).toLocaleDateString()}</td>
                                     <td className="px-6 py-4 font-black text-orange-600">${t.amount?.toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right text-xs text-slate-400">Daily Total</td>
                                 </tr>
                             ))}
+                            {reportType === 'AMBULANCE_UTILIZATION' && data?.utilization?.map(u => (
+                                <tr key={u.ambulance_number} className="hover:bg-slate-50/30 transition">
+                                    <td className="px-6 py-4 font-bold text-slate-700">{u.ambulance_number}</td>
+                                    <td className="px-6 py-4">{u.total_bookings} bookings</td>
+                                    <td className="px-6 py-4 text-right text-xs text-slate-400">Utilization count</td>
+                                </tr>
+                            ))}
+                            {reportType === 'DRIVER_PERFORMANCE' && data?.performance?.map(p => (
+                                <tr key={p.driver_name} className="hover:bg-slate-50/30 transition">
+                                    <td className="px-6 py-4 font-bold text-slate-700">{p.driver_name}</td>
+                                    <td className="px-6 py-4">{p.trips} trips</td>
+                                    <td className="px-6 py-4 text-right text-xs text-slate-400">Avg rating {p.avg_rating}</td>
+                                </tr>
+                            ))}
+                            {reportType === 'FEEDBACK' && data?.feedback?.map(f => (
+                                <tr key={f.rating} className="hover:bg-slate-50/30 transition">
+                                    <td className="px-6 py-4 font-bold text-slate-700">Rating {f.rating}</td>
+                                    <td className="px-6 py-4">{f.count} reviews</td>
+                                    <td className="px-6 py-4 text-right text-xs text-slate-400">Feedback distribution</td>
+                                </tr>
+                            ))}
+                            {reportType === 'RESPONSE_TIME' && data?.response_times?.map(r => (
+                                <tr key={r.range} className="hover:bg-slate-50/30 transition">
+                                    <td className="px-6 py-4 font-bold text-slate-700">{r.range}</td>
+                                    <td className="px-6 py-4">{r.count} cases</td>
+                                    <td className="px-6 py-4 text-right text-xs text-slate-400">Response bucket</td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
-                {!data?.stats && !data?.timeline && (
+                {!(data?.stats || data?.timeline || data?.utilization || data?.performance || data?.feedback || data?.response_times) && (
                     <div className="p-12 text-center text-slate-400 text-sm font-medium">
                         No granular records found for the selected criteria.
                     </div>

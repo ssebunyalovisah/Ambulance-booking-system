@@ -25,9 +25,11 @@ export default function FeedbackManagement() {
     };
 
     const filteredFeedback = feedback.filter(item => {
-        const matchesSearch = item.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             item.ambulance_number.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesRating = filterRating === 'all' || item.rating === parseInt(filterRating);
+        const patientName = (item.patient_name || item.Booking?.patient_name || '').toString();
+        const ambulanceNumber = (item.ambulance_number || item.Booking?.Ambulance?.ambulance_number || '').toString();
+        const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             ambulanceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesRating = filterRating === 'all' || (item.rating === parseInt(filterRating));
         return matchesSearch && matchesRating;
     });
 
@@ -134,10 +136,10 @@ export default function FeedbackManagement() {
                                                     <User className="w-5 h-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-900">{item.patient_name}</p>
+                                                    <p className="font-bold text-slate-900">{item.patient_name || item.Booking?.patient_name || 'Unknown Patient'}</p>
                                                     <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium mt-0.5">
                                                         <Calendar className="w-3 h-3" />
-                                                        {new Date(item.created_at).toLocaleDateString()}
+                                                        {new Date(item.created_at || item.Booking?.created_at || Date.now()).toLocaleDateString()}
                                                     </div>
                                                 </div>
                                             </div>
@@ -148,8 +150,8 @@ export default function FeedbackManagement() {
                                                     <Ambulance className="w-5 h-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-900">{item.ambulance_number}</p>
-                                                    <p className="text-slate-400 text-xs font-medium mt-0.5">Driver: {item.driver_name}</p>
+                                                    <p className="font-bold text-slate-900">{item.ambulance_number || item.Booking?.Ambulance?.ambulance_number || 'Unknown Unit'}</p>
+                                                    <p className="text-slate-400 text-xs font-medium mt-0.5">Driver: {item.driver_name || item.Booking?.Driver?.full_name || 'Unknown Driver'}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -161,7 +163,7 @@ export default function FeedbackManagement() {
                                                         className={`w-4 h-4 ${i < item.rating ? 'fill-current' : 'text-slate-200'}`} 
                                                     />
                                                 ))}
-                                                <span className="ml-2 font-black text-slate-900">{item.rating}.0</span>
+                                                <span className="ml-2 font-black text-slate-900">{item.rating ? `${item.rating}.0` : '0.0'}</span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">

@@ -1,5 +1,5 @@
 // server/src/controllers/auth_controller.js
-const { User, Company, Driver, RefreshToken } = require('../models');
+const { User, Company, Driver, Ambulance, RefreshToken } = require('../models');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -214,7 +214,10 @@ exports.getMe = async (req, res) => {
     const { id, role } = req.user;
     if (role === 'driver') {
       const driver = await Driver.findByPk(id, {
-        include: [{ model: Company, attributes: ['name'] }],
+        include: [
+          { model: Company, attributes: ['name'] },
+          { model: Ambulance, attributes: ['ambulance_number'] },
+        ],
       });
       if (!driver) return res.status(404).json({ error: 'Driver not found' });
       return res.json({
@@ -225,6 +228,9 @@ exports.getMe = async (req, res) => {
         company_id: driver.company_id,
         company_name: driver.Company?.name,
         ambulance_id: driver.ambulance_id,
+        ambulance_number: driver.Ambulance?.ambulance_number,
+        status: driver.status,
+        phone: driver.phone,
       });
     }
 

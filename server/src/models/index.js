@@ -51,4 +51,7 @@ module.exports = {
   Driver,
   Booking,
   User,
+  Feedback,
+  Payment,
+  RefreshToken,
 };

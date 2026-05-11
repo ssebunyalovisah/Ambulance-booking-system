@@ -22,7 +22,7 @@ function EmergencyApp() {
   const [paymentIframeUrl, setPaymentIframeUrl] = useState(null);
 
   const { 
-    userLocation, setUserLocation, nearbyAmbulances, setNearbyAmbulances, setLocationLoading 
+    userLocation, locationLoading, nearbyAmbulances, setUserLocation, setNearbyAmbulances, setLocationLoading 
   } = useLocationStore();
 
   const { 
@@ -87,9 +87,10 @@ function EmergencyApp() {
     sync();
 
     socketService.onBookingUpdate((data) => {
-      if (data.id === activeBookingId) {
-        if (data.status === 'completed') completeTrip();
-        else if (data.status === 'cancelled') {
+      if (data.bookingId === activeBookingId) {
+        if (data.status === 'completed') {
+          completeTrip();
+        } else if (data.status === 'cancelled') {
           alert('Booking was cancelled');
           clearBooking();
         } else {
@@ -162,7 +163,7 @@ function EmergencyApp() {
       <div className="absolute inset-0 z-0">
         <MapView 
           userLocation={userLocation} 
-          locationLoading={false} 
+          locationLoading={locationLoading} 
           ambulances={nearbyAmbulances} 
           onAmbulanceSelect={setSelectedAmbulance} 
         />

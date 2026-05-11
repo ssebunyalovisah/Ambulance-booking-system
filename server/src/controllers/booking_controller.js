@@ -13,13 +13,19 @@ const getRichBooking = async (id) => {
   });
 };
 
-// 1. Get List (Admin Monitor)
+// 1. Get List (Admin Monitor / Driver History)
 exports.getBookings = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, id: userId } = req.user;
+  const { driverId } = req.query;
   try {
     const where = {};
     if (role !== 'super_admin') {
       where.company_id = company_id;
+    }
+    if (role === 'driver') {
+      where.driver_id = userId;
+    } else if (driverId) {
+      where.driver_id = driverId;
     }
 
     const bookings = await Booking.findAll({

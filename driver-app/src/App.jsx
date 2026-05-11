@@ -12,10 +12,12 @@ function App() {
             <DriverLayout>
                 <Routes>
                     <Route path="/" element={<Login />} />
+                    <Route path="/login" element={<Login />} />
                     <Route path="/requests" element={<RequestScreen />} />
                     <Route path="/trip" element={<TripScreen />} />
                     <Route path="/history" element={<History />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="*" element={<Login />} />
                 </Routes>
             </DriverLayout>
         </Router>

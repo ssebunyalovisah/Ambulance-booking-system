@@ -131,7 +131,9 @@ export const AuthProvider = ({ children }) => {
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     if (rememberMe) localStorage.setItem('rememberMe', 'true');
     setAdmin(user);
-    return user;
+    const response = { accessToken, refreshToken: refreshToken || null, user };
+    console.log('[AuthContext] Returning driver auth:', response);
+    return response;
   };
 
   const signup = async (formData) => {
@@ -142,7 +144,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => performLogout();
 
   return (
-    <AuthContext.Provider value={{ admin, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ admin, login, loginDriver, signup, logout, loading }}>
       {!loading && children}
       {showSessionWarning && admin && (
         <SessionWarningModal onStaySignedIn={() => { setShowSessionWarning(false); resetInactivityTimer(); }} onLogout={performLogout} secondsLeft={warningTimeLeft} />

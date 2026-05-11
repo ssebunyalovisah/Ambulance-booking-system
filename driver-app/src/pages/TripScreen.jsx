@@ -7,7 +7,7 @@ import socketService from '../services/socket.js';
 import { dispatchBooking, arriveBooking, completeTrip, cancelTrip, updateLocation } from '../services/api.js';
 import useTripStore from '../store/useTripStore.js';
 import useDriverLocation from '../hooks/useDriverLocation.js';
-import { Phone, AlertTriangle, X, CheckCircle } from 'lucide-react';
+import { Phone, AlertTriangle, X, CheckCircle, Activity } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 const TripScreen = () => {

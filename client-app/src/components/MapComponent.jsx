@@ -50,6 +50,8 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation, l
                           typeof userLocation.lat === 'number' && 
                           typeof userLocation.lng === 'number';
 
+  const mapKey = isValidLocation ? `${userLocation.lat}-${userLocation.lng}` : 'no-location';
+
   if (locationLoading || !isValidLocation) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100">
@@ -70,6 +72,7 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation, l
   return (
     <div className="w-full h-full z-0 relative">
         <MapContainer 
+            key={mapKey}
             center={userLocation} 
             zoom={trackingMode ? 16 : 14} 
             style={{ height: '100%', width: '100%' }}
@@ -80,8 +83,6 @@ export default function MapView({ onAmbulanceSelect, ambulances, userLocation, l
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            
-            <ChangeView center={userLocation} zoom={14} />
 
             {userLocation && typeof userLocation.lat === 'number' && typeof userLocation.lng === 'number' && (
                 <>

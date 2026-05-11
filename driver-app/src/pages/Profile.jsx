@@ -1,20 +1,42 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Shield, Phone, LogOut, CheckCircle, Loader2 } from 'lucide-react';
-import { updateDriverStatus } from '../services/api';
+import { updateDriverStatus, getMe } from '../services/api';
 
 const Profile = () => {
+    const [driver, setDriver] = useState(null);
     const [status, setStatus] = useState('available');
+    const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const { data } = await getMe();
+                setDriver(data);
+                setStatus(data.status || 'available');
+            } catch (err) {
+                console.error('Failed to load profile', err);
+                setError('Unable to load driver profile.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchProfile();
+    }, []);
+
     const handleStatusToggle = async (newStatus) => {
+        if (newStatus === status) return;
+        setError('');
         setIsUpdating(true);
         try {
             await updateDriverStatus(newStatus);
             setStatus(newStatus);
         } catch (error) {
             console.error('Failed to update status', error);
+            setError('Unable to update status. Please try again.');
         } finally {
             setIsUpdating(false);
         }
@@ -24,6 +46,20 @@ const Profile = () => {
         localStorage.removeItem('accessToken');
         window.location.href = '/';
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+            </div>
+        );
+    }
+
+    const profileItems = [
+        { icon: Shield, label: 'Driver ID', value: driver?.driver_id || 'DRV-XXXXX' },
+        { icon: Shield, label: 'Ambulance', value: driver?.ambulance_number ? `Unit ${driver.ambulance_number}` : 'Unassigned' },
+        { icon: Phone, label: 'Contact', value: driver?.phone || '+256 700 000 000' },
+    ];
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -49,17 +85,13 @@ const Profile = () => {
                             </div>
                         )}
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 leading-tight">John Doe</h2>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Certified Advanced Paramedic</p>
+                    <h2 className="text-2xl font-black text-slate-900 leading-tight">{driver?.name || 'Driver Name'}</h2>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{driver?.company_name || 'Emergency Dispatch Team'}</p>
                 </div>
 
                 {/* Details Section */}
                 <div className="space-y-4">
-                    {[
-                        { icon: Shield, label: 'Driver ID', value: 'DRV-12345' },
-                        { icon: Shield, label: 'Ambulance', value: 'Unit 001 (KAP-782)' },
-                        { icon: Phone, label: 'Contact', value: '+256 700 000 000' },
-                    ].map((item, i) => (
+                    {profileItems.map((item, i) => (
                         <div key={i} className="bg-white p-5 rounded-3xl border border-slate-100 flex items-center gap-4">
                             <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
                                 <item.icon className="w-5 h-5" />
@@ -71,6 +103,12 @@ const Profile = () => {
                         </div>
                     ))}
                 </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-100 text-red-700 p-4 rounded-3xl text-sm font-semibold">
+                        {error}
+                    </div>
+                )}
 
                 {/* Status Toggle */}
                 <div className="bg-white p-6 rounded-[2rem] border border-slate-100">

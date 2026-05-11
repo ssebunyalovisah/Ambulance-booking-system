@@ -21,14 +21,18 @@ exports.getReportsData = async (req, res) => {
     let data = {};
 
     switch (reportType) {
-      case 'BOOKING_SUMMARY':
-        data.stats = await Booking.findAll({
+      case 'BOOKING_SUMMARY': {
+        const stats = await Booking.findAll({
           where,
           attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
           group: ['status'],
         });
-        
-        data.timeline = await Booking.findAll({
+        data.stats = stats.map(entry => ({
+          status: entry.status,
+          count: Number(entry.get('count') || 0),
+        }));
+
+        const timelineRows = await Booking.findAll({
           where,
           attributes: [
             [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
@@ -37,14 +41,20 @@ exports.getReportsData = async (req, res) => {
           group: [sequelize.fn('DATE', sequelize.col('created_at'))],
           order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'ASC']],
         });
+        data.timeline = timelineRows.map(entry => ({
+          date: entry.get('date'),
+          count: Number(entry.get('count') || 0),
+        }));
         break;
+      }
 
-      case 'REVENUE':
-        data.total = await Booking.sum('price', {
+      case 'REVENUE': {
+        const totalRevenue = await Booking.sum('price', {
           where: { ...where, payment_status: 'paid' },
-        }) || 0;
+        });
+        data.total = Number(totalRevenue || 0);
 
-        data.timeline = await Booking.findAll({
+        const timelineRows = await Booking.findAll({
           where: { ...where, payment_status: 'paid' },
           attributes: [
             [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
@@ -53,10 +63,15 @@ exports.getReportsData = async (req, res) => {
           group: [sequelize.fn('DATE', sequelize.col('created_at'))],
           order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'ASC']],
         });
+        data.timeline = timelineRows.map(entry => ({
+          date: entry.get('date'),
+          amount: Number(entry.get('amount') || 0),
+        }));
         break;
+      }
 
-      case 'AMBULANCE_UTILIZATION':
-        data.utilization = await Ambulance.findAll({
+      case 'AMBULANCE_UTILIZATION': {
+        const utilizationRows = await Ambulance.findAll({
           where: role !== 'super_admin' ? { company_id } : {},
           attributes: [
             'ambulance_number',
@@ -68,17 +83,22 @@ exports.getReportsData = async (req, res) => {
             where: startDate && endDate ? {
                 created_at: { [Op.between]: [new Date(startDate), new Date(endDate)] }
             } : {},
-            required: false
+            required: false,
           }],
           group: ['Ambulance.id', 'Ambulance.ambulance_number'],
         });
+        data.utilization = utilizationRows.map(entry => ({
+          ambulance_number: entry.ambulance_number,
+          total_bookings: Number(entry.get('total_bookings') || 0),
+        }));
         break;
+      }
 
-      case 'DRIVER_PERFORMANCE':
-        data.performance = await Driver.findAll({
+      case 'DRIVER_PERFORMANCE': {
+        const performanceRows = await Driver.findAll({
           where: role !== 'super_admin' ? { company_id } : {},
           attributes: [
-            'full_name',
+            ['full_name', 'driver_name'],
             [sequelize.fn('COUNT', sequelize.col('Bookings.id')), 'trips'],
             [sequelize.fn('AVG', sequelize.col('Bookings.rating')), 'avg_rating'],
           ],
@@ -88,26 +108,84 @@ exports.getReportsData = async (req, res) => {
             where: startDate && endDate ? {
                 created_at: { [Op.between]: [new Date(startDate), new Date(endDate)] }
             } : {},
-            required: false
+            required: false,
           }],
           group: ['Driver.id', 'Driver.full_name'],
         });
+        data.performance = performanceRows.map(entry => ({
+          driver_name: entry.get('driver_name'),
+          trips: Number(entry.get('trips') || 0),
+          avg_rating: Number(entry.get('avg_rating') || 0).toFixed(1),
+        }));
         break;
+      }
 
-      case 'FEEDBACK':
-        data.ratings = await Booking.findAll({
+      case 'FEEDBACK': {
+        const feedbackRows = await Booking.findAll({
           where: { ...where, rating: { [Op.ne]: null } },
           attributes: ['rating', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
           group: ['rating'],
         });
+        data.feedback = feedbackRows.map(entry => ({
+          rating: entry.rating,
+          count: Number(entry.get('count') || 0),
+        }));
 
-        data.list = await Booking.findAll({
+        const list = await Booking.findAll({
           where: { ...where, feedback: { [Op.ne]: null } },
           attributes: ['patient_name', 'rating', 'feedback', 'created_at'],
           limit: 50,
           order: [['created_at', 'DESC']],
         });
+        data.list = list.map(entry => entry.toJSON());
         break;
+      }
+
+      case 'RESPONSE_TIME': {
+        const responseRows = await Booking.findAll({
+          where: { ...where, status: { [Op.in]: ['arrived', 'completed'] } },
+          attributes: ['created_at', 'updated_at'],
+        });
+
+        const responseTimes = responseRows.map(entry => {
+          const createdAt = new Date(entry.created_at);
+          const updatedAt = new Date(entry.updated_at);
+          return Math.max(0, Math.round((updatedAt - createdAt) / 60000));
+        });
+
+        const buckets = [
+          { range: '0-10 min', count: 0 },
+          { range: '11-20 min', count: 0 },
+          { range: '21-30 min', count: 0 },
+          { range: '31-60 min', count: 0 },
+          { range: '60+ min', count: 0 },
+        ];
+
+        responseTimes.forEach(minutes => {
+          if (minutes <= 10) buckets[0].count += 1;
+          else if (minutes <= 20) buckets[1].count += 1;
+          else if (minutes <= 30) buckets[2].count += 1;
+          else if (minutes <= 60) buckets[3].count += 1;
+          else buckets[4].count += 1;
+        });
+
+        const groupedByDate = responseRows.reduce((acc, entry, index) => {
+          const date = new Date(entry.created_at).toISOString().split('T')[0];
+          if (!acc[date]) acc[date] = [];
+          acc[date].push(responseTimes[index]);
+          return acc;
+        }, {});
+
+        data.response_times = buckets;
+        data.timeline = Object.entries(groupedByDate)
+          .map(([date, values]) => ({
+            date,
+            average_minutes: Math.round(values.reduce((sum, val) => sum + val, 0) / values.length),
+          }))
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+        data.total = responseTimes.length;
+        break;
+      }
 
       default:
         return res.status(400).json({ error: 'Invalid report type' });

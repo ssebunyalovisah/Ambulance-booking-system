@@ -34,7 +34,7 @@ api.interceptors.response.use(
           return api(originalRequest);
         } catch (refreshError) {
           localStorage.clear();
-          window.location.href = '/login';
+          window.location.href = '/';
         }
       }
     }
@@ -57,10 +57,11 @@ export const cancelTrip = (id, reason) => api.patch(`/bookings/${id}/cancel`, { 
 
 // Reconciliation
 export const getActiveBooking = (driverId) => api.get(`/bookings/active?driverId=${driverId}`);
+export const getDriverBookings = (driverId) => api.get('/bookings', { params: driverId ? { driverId } : {} }).then(res => res.data);
 
 // Location & Status
 export const updateLocation = (data) => api.post('/location/driver', data);
-export const updateStatus = (status) => api.patch('/drivers/self/status', { status });
+export const updateDriverStatus = (status) => api.patch('/drivers/self/status', { status });
 
 // Smart Login Helper
 export const verifyDriverId = (driver_id) => api.get(`/drivers/verify/${driver_id}`);

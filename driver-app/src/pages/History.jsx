@@ -12,8 +12,8 @@ const History = () => {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const bookings = await getDriverBookings();
-                // Normalize status to lowercase for filtering
+                const driverId = localStorage.getItem('driverDbId');
+                const bookings = await getDriverBookings(driverId);
                 setHistory(bookings.filter(b => b.status?.toLowerCase() === 'completed'));
             } catch (error) {
                 console.error('Fetch history failed', error);

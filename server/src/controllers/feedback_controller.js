@@ -4,6 +4,10 @@ const { Feedback, Booking, Driver, Ambulance } = require('../models');
 exports.submitFeedback = async (req, res) => {
   const { booking_id, rating, comments } = req.body;
 
+  if (!booking_id || !rating) {
+    return res.status(400).json({ error: 'booking_id and rating are required' });
+  }
+
   try {
     const booking = await Booking.findByPk(booking_id);
     if (!booking) return res.status(404).json({ error: 'Booking not found' });

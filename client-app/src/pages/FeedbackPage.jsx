@@ -15,6 +15,17 @@ export default function FeedbackModal({ bookingId, ambulance, isOpen, onReturnHo
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!bookingId) {
+            alert('Booking information is missing. Please return home and try again.');
+            return;
+        }
+
+        if (rating === 0) {
+            alert('Please select a rating before submitting.');
+            return;
+        }
+
         setIsLoading(true);
         try {
             await api.post('/feedback', {
@@ -24,7 +35,7 @@ export default function FeedbackModal({ bookingId, ambulance, isOpen, onReturnHo
             });
             setSubmitted(true);
         } catch (error) {
-            console.error('Error submitting feedback:', error);
+            console.error('Error submitting feedback:', error.response?.data || error);
             alert('Could not submit feedback. Please try again.');
         } finally {
             setIsLoading(false);

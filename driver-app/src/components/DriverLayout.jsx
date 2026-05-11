@@ -49,14 +49,14 @@ const DriverLayout = ({ children }) => {
     reconcile();
     socket.on('connect', reconcile);
 
-    socketService.onNewBooking((data) => {
+    const handleNewBooking = (data) => {
       if (!useTripStore.getState().currentTrip) {
         setCurrentRequest(data);
         setTimeLeft(TIMEOUT_SECONDS);
       }
-    });
+    };
 
-    socketService.onBookingUpdate((data) => {
+    const handleBookingUpdate = (data) => {
       if (data.status === 'cancelled') {
         if (currentRequestRef.current?.id === data.id) {
           setCurrentRequest(null);
@@ -67,11 +67,18 @@ const DriverLayout = ({ children }) => {
           navigate('/requests');
         }
       }
-    });
+    };
+
+    socket.on('new_booking', handleNewBooking);
+    socket.on('booking_status_update', handleBookingUpdate);
+    socket.on('booking_cancelled', handleBookingUpdate);
 
     return () => {
       socket.off('connect', reconcile);
-      socketService.disconnect();
+      socket.off('new_booking', handleNewBooking);
+      socket.off('booking_status_update', handleBookingUpdate);
+      socket.off('booking_cancelled', handleBookingUpdate);
+      // Keep the socket connection alive while the driver app is mounted
     };
   }, [navigate]);
 
