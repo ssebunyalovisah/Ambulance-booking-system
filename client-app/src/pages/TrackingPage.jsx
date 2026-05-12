@@ -5,11 +5,14 @@ import MapView from '../components/MapComponent';
 import { useBookingStore } from '../store/useBookingStore';
 import { useLocationStore } from '../store/useLocationStore';
 
-export default function TrackingPage({ onCancel }) {
+export default function TrackingPage({ onCancel, onExit }) {
   const { activeBookingId, selectedAmbulance, bookingStatus, driverLocation } = useBookingStore();
   const { userLocation } = useLocationStore();
   
-  const displayStatus = (bookingStatus || 'pending').toUpperCase();
+  const normalizedStatus = (bookingStatus || 'pending').toLowerCase();
+  const displayStatus = normalizedStatus.toUpperCase();
+  const canCancel = ['pending', 'accepted', 'dispatched', 'arrived'].includes(normalizedStatus);
+  const canExit = ['timed_out', 'cancelled'].includes(normalizedStatus);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-100 flex flex-col font-sans">
@@ -25,12 +28,21 @@ export default function TrackingPage({ onCancel }) {
               <h1 className="text-slate-900 font-black text-xl tracking-tight truncate">{displayStatus}</h1>
             </div>
           </div>
-          {['pending', 'accepted', 'dispatched', 'arrived'].includes((bookingStatus || 'pending').toLowerCase()) && (
+          {canCancel && (
             <button 
               onClick={onCancel} 
               className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-2xl transition-all flex items-center gap-2"
             >
               <span className="text-[10px] font-black uppercase tracking-widest hidden xs:block">Cancel</span>
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          {canExit && onExit && (
+            <button 
+              onClick={onExit} 
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-2xl transition-all flex items-center gap-2"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest hidden xs:block">Return Home</span>
               <X className="w-5 h-5" />
             </button>
           )}

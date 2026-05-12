@@ -66,90 +66,123 @@ export default function Reports() {
 
   const handleExportPDF = async () => {
     const title = REPORT_TYPES.find(t => t.id === reportType)?.label || reportType;
-    const doc = new jsPDF();
-    doc.setFillColor('#f97316');
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setFontSize(16);
-    doc.setTextColor('#ffffff');
-    doc.text(title, 14, 20);
-    doc.setFontSize(9);
-    doc.setTextColor('#ffffff');
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
-    doc.setTextColor('#334155');
-    doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 38);
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-    let yPosition = 45;
+    const addHeader = () => {
+      doc.setFillColor('#f97316');
+      doc.rect(0, 0, 210, 32, 'F');
+      doc.setFontSize(18);
+      doc.setTextColor('#ffffff');
+      doc.text(title, 14, 18);
+      doc.setFontSize(9);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 25);
+      doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 30);
+      doc.setDrawColor('#f97316');
+      doc.line(14, 34, 196, 34);
+      doc.setTextColor('#334155');
+    };
 
-    const chartIds = [];
-    if (reportType === 'BOOKING_SUMMARY') {
-      chartIds.push('chart-1', 'chart-2');
-    } else if (reportType === 'REVENUE') {
-      chartIds.push('chart-3');
-    } else if (reportType === 'DRIVER_PERFORMANCE') {
-      chartIds.push('chart-4');
-    } else if (reportType === 'FEEDBACK') {
-      chartIds.push('chart-1');
-    } else if (reportType === 'RESPONSE_TIME') {
-      chartIds.push('chart-4');
-    }
+    addHeader();
+    let yPosition = 42;
 
-    for (const chartId of chartIds) {
+    const captureChart = async (chartId, label) => {
       const chartElement = document.getElementById(chartId);
-      if (!chartElement) continue;
+      if (!chartElement) return false;
       try {
-        const canvas = await html2canvas(chartElement, { scale: 2 });
+        const canvas = await html2canvas(chartElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
         const imgData = canvas.toDataURL('image/png');
         const imgWidth = 180;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         if (yPosition + imgHeight > 280) {
           doc.addPage();
           yPosition = 20;
+          addHeader();
+          yPosition = 42;
         }
+        doc.setFontSize(11);
+        doc.setTextColor('#1e293b');
+        doc.text(label, 14, yPosition);
+        yPosition += 6;
         doc.addImage(imgData, 'PNG', 15, yPosition, imgWidth, imgHeight);
-        yPosition += imgHeight + 10;
+        yPosition += imgHeight + 8;
+        return true;
       } catch (error) {
         console.error('Error capturing chart:', error);
+        return false;
       }
-    }
+    };
 
-    let tableData = [];
-    let columns = [];
-
+    const chartIds = [];
     if (reportType === 'BOOKING_SUMMARY') {
-      columns = ['Status', 'Count'];
-      tableData = data?.stats.map(s => [s.status, s.count]) || [];
+      chartIds.push({ id: 'chart-1', label: 'Booking Status Distribution' }, { id: 'chart-2', label: 'Bookings Trend' });
     } else if (reportType === 'REVENUE') {
-      columns = ['Date', 'Amount'];
-      tableData = data?.timeline.map(t => [t.date, `$${t.amount.toLocaleString()}`]) || [];
-    } else if (reportType === 'AMBULANCE_UTILIZATION') {
-      columns = ['Ambulance #', 'Total Bookings'];
-      tableData = data?.utilization.map(u => [u.ambulance_number, u.total_bookings]) || [];
+      chartIds.push({ id: 'chart-3', label: 'Revenue Analysis' });
     } else if (reportType === 'DRIVER_PERFORMANCE') {
-      columns = ['Driver Name', 'Trips', 'Avg Rating'];
-      tableData = data?.performance.map(p => [p.driver_name, p.trips, p.avg_rating]) || [];
+      chartIds.push({ id: 'chart-4', label: 'Trips per Driver' });
     } else if (reportType === 'FEEDBACK') {
-      columns = ['Rating', 'Count'];
-      tableData = data?.feedback?.map(f => [f.rating, f.count]) || [];
+      chartIds.push({ id: 'chart-1', label: 'Feedback Rating Distribution' });
     } else if (reportType === 'RESPONSE_TIME') {
-      columns = ['Time Range', 'Count'];
-      tableData = data?.response_times?.map(r => [r.range, r.count]) || [];
+      chartIds.push({ id: 'chart-4', label: 'Response Time Distribution' });
     }
 
-    if (tableData.length > 0) {
-      if (yPosition + 50 > 280) {
+    for (const chart of chartIds) {
+      const captured = await captureChart(chart.id, chart.label);
+      if (!captured && yPosition + 20 > 280) {
         doc.addPage();
         yPosition = 20;
+        addHeader();
+        yPosition = 42;
       }
+    }
+
+    const addTable = () => {
+      let tableData = [];
+      let columns = [];
+
+      if (reportType === 'BOOKING_SUMMARY') {
+        columns = ['Status', 'Count'];
+        tableData = data?.stats.map(s => [s.status, s.count]) || [];
+      } else if (reportType === 'REVENUE') {
+        columns = ['Date', 'Amount'];
+        tableData = data?.timeline?.map(t => [new Date(t.date).toLocaleDateString(), `$${t.amount.toLocaleString()}`]) || [];
+      } else if (reportType === 'AMBULANCE_UTILIZATION') {
+        columns = ['Ambulance #', 'Total Bookings'];
+        tableData = data?.utilization?.map(u => [u.ambulance_number, u.total_bookings]) || [];
+      } else if (reportType === 'DRIVER_PERFORMANCE') {
+        columns = ['Driver', 'Trips', 'Avg Rating'];
+        tableData = data?.performance?.map(p => [p.driver_name, p.trips, p.avg_rating]) || [];
+      } else if (reportType === 'FEEDBACK') {
+        columns = ['Rating', 'Count'];
+        tableData = data?.feedback?.map(f => [f.rating, f.count]) || [];
+      } else if (reportType === 'RESPONSE_TIME') {
+        columns = ['Range', 'Count'];
+        tableData = data?.response_times?.map(r => [r.range, r.count]) || [];
+      }
+
+      if (!tableData.length) return;
+
+      if (yPosition + 60 > 280) {
+        doc.addPage();
+        yPosition = 20;
+        addHeader();
+        yPosition = 42;
+      }
+
       doc.autoTable({
         startY: yPosition,
         head: [columns],
         body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: '#f97316', textColor: '#ffffff' },
-        styles: { fontSize: 8 },
+        theme: 'striped',
+        headStyles: { fillColor: '#f97316', textColor: '#ffffff', halign: 'center' },
+        styles: { fontSize: 9, textColor: '#334155' },
+        alternateRowStyles: { fillColor: '#f8fafc' },
+        margin: { left: 14, right: 14 },
+        tableLineColor: '#e2e8f0',
+        tableLineWidth: 0.3,
       });
-    }
+    };
 
+    addTable();
     doc.save(`RescueReport_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 

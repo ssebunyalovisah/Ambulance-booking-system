@@ -72,8 +72,11 @@ function EmergencyApp() {
       try {
         const data = await checkBookingStatus(activeBookingId);
         if (data.status === 'completed') completeTrip();
-        else if (data.status === 'cancelled') clearBooking();
-        else setActiveBooking(activeBookingId, data.status);
+        else if (data.status === 'cancelled' || data.status === 'timed_out') {
+          clearBooking();
+        } else {
+          setActiveBooking(activeBookingId, data.status);
+        }
       } catch (err) {
         console.error('Status sync failed', err);
         // If the booking is not found (404), it means the DB was reset or booking deleted
@@ -90,8 +93,8 @@ function EmergencyApp() {
       if (data.bookingId === activeBookingId) {
         if (data.status === 'completed') {
           completeTrip();
-        } else if (data.status === 'cancelled') {
-          alert('Booking was cancelled');
+        } else if (data.status === 'cancelled' || data.status === 'timed_out') {
+          alert(data.status === 'timed_out' ? 'Booking timed out.' : 'Booking was cancelled');
           clearBooking();
         } else {
           setActiveBooking(activeBookingId, data.status);
@@ -139,11 +142,17 @@ function EmergencyApp() {
 
   if (activeBookingId && !isTripCompleted) {
     return (
-      <TrackingPage onCancel={async () => {
-        await cancelBooking(activeBookingId);
-        clearBooking();
-        navigate("/map");
-      }} />
+      <TrackingPage
+        onCancel={async () => {
+          await cancelBooking(activeBookingId);
+          clearBooking();
+          navigate("/map");
+        }}
+        onExit={() => {
+          clearBooking();
+          navigate("/map");
+        }}
+      />
     );
   }
 
