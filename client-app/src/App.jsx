@@ -180,14 +180,14 @@ function EmergencyApp() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/map" element={<EmergencyApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <InstallPrompt />
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

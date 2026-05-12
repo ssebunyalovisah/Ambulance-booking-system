@@ -3,12 +3,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import socketService from '../services/socket.js';
 import { dispatchBooking, arriveBooking, completeTrip, cancelTrip, updateLocation } from '../services/api.js';
 import useTripStore from '../store/useTripStore.js';
 import useDriverLocation from '../hooks/useDriverLocation.js';
 import { Phone, AlertTriangle, X, CheckCircle, Activity } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 const TripScreen = () => {
   const navigate = useNavigate();

@@ -8,11 +8,17 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+const storedToken = localStorage.getItem('accessToken');
+if (storedToken) {
+  api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
+}
+
 // Interceptor: Add Token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
   }
   return config;
 });
