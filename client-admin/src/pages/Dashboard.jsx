@@ -131,7 +131,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="w-full overflow-y-auto max-h-screen bg-slate-50">
+    <div className="w-full bg-slate-50">
       {/* HERO BANNER */}
       <div
         className="relative w-full h-[320px] overflow-hidden"

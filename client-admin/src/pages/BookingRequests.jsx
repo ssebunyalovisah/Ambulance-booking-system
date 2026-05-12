@@ -180,7 +180,7 @@ const BookingRequests = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 overflow-y-auto w-full max-h-screen">
+    <div className="p-4 md:p-8 w-full">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-[200] px-5 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm flex items-center gap-2 ${

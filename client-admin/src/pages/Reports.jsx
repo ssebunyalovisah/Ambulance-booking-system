@@ -438,7 +438,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="p-4 md:p-8 w-full max-h-screen overflow-x-hidden">
+    <div className="p-4 md:p-8 w-full overflow-x-hidden">
       <style>{`@media print { .no-print { display: none !important; } .print-only { display: block !important; } body { background: #ffffff; } }`}</style>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
