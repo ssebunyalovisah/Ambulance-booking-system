@@ -32,17 +32,21 @@ exports.submitFeedback = async (req, res) => {
 };
 
 exports.getAllFeedback = async (req, res) => {
-  const { company_id } = req.user;
+  const { company_id, role } = req.user;
   try {
+    const isSuperAdmin = role === 'super_admin' || role === 'SUPER_ADMIN';
+    const bookingWhere = isSuperAdmin ? {} : { company_id };
+
     const feedbacks = await Feedback.findAll({
       include: [
         {
           model: Booking,
-          where: { company_id },
-          attributes: ['patient_name'],
+          where: bookingWhere,
+          attributes: ['patient_name', 'created_at'],
           include: [
             { model: Driver, attributes: ['full_name'] },
             { model: Ambulance, attributes: ['ambulance_number'] },
+            { model: require('../models').Company, attributes: ['name'] },
           ],
         },
       ],

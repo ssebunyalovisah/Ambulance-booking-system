@@ -187,6 +187,46 @@ exports.getReportsData = async (req, res) => {
         break;
       }
 
+      case 'DETAILED_BOOKINGS': {
+        const bookings = await Booking.findAll({
+          where,
+          include: [
+            { model: Driver, attributes: ['full_name', 'driver_id', 'phone'] },
+            { model: Company, attributes: ['name'] },
+            { model: Ambulance, attributes: ['ambulance_number'] }
+          ],
+          order: [['created_at', 'DESC']]
+        });
+        
+        data.bookings = bookings.map(b => b.toJSON());
+        
+        // Also include summary stats for charts
+        const stats = await Booking.findAll({
+          where,
+          attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+          group: ['status'],
+        });
+        data.stats = stats.map(entry => ({
+          status: entry.status,
+          count: Number(entry.get('count') || 0),
+        }));
+
+        const timelineRows = await Booking.findAll({
+          where,
+          attributes: [
+            [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+          ],
+          group: [sequelize.fn('DATE', sequelize.col('created_at'))],
+          order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'ASC']],
+        });
+        data.timeline = timelineRows.map(entry => ({
+          date: entry.get('date'),
+          count: Number(entry.get('count') || 0),
+        }));
+        break;
+      }
+
       default:
         return res.status(400).json({ error: 'Invalid report type' });
     }

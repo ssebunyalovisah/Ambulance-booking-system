@@ -31,7 +31,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: BarChart3, label: 'Reports & Analytics', path: '/reports' },
     ];
 
-    if (admin?.role === 'super_admin' || admin?.role === 'SUPER_ADMIN') {
+    if (admin?.role?.toLowerCase() === 'super_admin') {
         navItems.push({ icon: Building2, label: 'Companies Management', path: '/companies' });
     }
 

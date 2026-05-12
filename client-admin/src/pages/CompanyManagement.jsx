@@ -25,7 +25,7 @@ export default function CompanyManagement() {
     const fetchCompanies = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/admin/companies');
+            const response = await api.get('/companies');
             setCompanies(response.data);
         } catch (err) {
             console.error(err);
@@ -36,7 +36,7 @@ export default function CompanyManagement() {
     };
 
     useEffect(() => {
-        if (admin?.role === 'SUPER_ADMIN') {
+        if (admin?.role?.toLowerCase() === 'super_admin') {
             fetchCompanies();
         }
     }, [admin]);
@@ -49,7 +49,7 @@ export default function CompanyManagement() {
         setDeletingId(id);
         setError(null);
         try {
-            await api.delete(`/admin/companies/${id}`);
+            await api.delete(`/companies/${id}`);
             setSuccess('Company deleted successfully');
             setCompanies(companies.filter(c => c.id !== id));
             setTimeout(() => setSuccess(null), 3000);
@@ -61,7 +61,7 @@ export default function CompanyManagement() {
         }
     };
 
-    if (admin?.role !== 'SUPER_ADMIN') {
+    if (admin?.role?.toLowerCase() !== 'super_admin') {
         return (
             <div className="p-8 flex items-center justify-center h-[80vh]">
                 <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl text-center max-w-md">

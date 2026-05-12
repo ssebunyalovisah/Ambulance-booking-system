@@ -16,4 +16,13 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
+const superAdminOnly = (req, res, next) => {
+    const role = req.user.role?.toLowerCase();
+    if (role !== 'super_admin') {
+        return res.status(403).json({ error: 'Access denied. Super Admin privileges required.' });
+    }
+    next();
+};
+
+authMiddleware.superAdminOnly = superAdminOnly;
 module.exports = authMiddleware;

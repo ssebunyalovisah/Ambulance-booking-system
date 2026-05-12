@@ -27,6 +27,7 @@ import html2canvas from 'html2canvas';
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#6366f1', '#ef4444', '#a855f7'];
 
 const REPORT_TYPES = [
+  { id: 'DETAILED_BOOKINGS', label: 'Detailed Bookings', icon: FileText },
   { id: 'BOOKING_SUMMARY', label: 'Booking Summary', icon: Activity },
   { id: 'REVENUE', label: 'Revenue & Payments', icon: DollarSign },
   { id: 'AMBULANCE_UTILIZATION', label: 'Ambulance Utilization', icon: BarChart3 },
@@ -37,7 +38,7 @@ const REPORT_TYPES = [
 
 export default function Reports() {
   const [loading, setLoading] = useState(false);
-  const [reportType, setReportType] = useState('BOOKING_SUMMARY');
+  const [reportType, setReportType] = useState('DETAILED_BOOKINGS');
   const [filters, setFilters] = useState({
     startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -133,7 +134,7 @@ export default function Reports() {
     };
 
     const chartIds = [];
-    if (reportType === 'BOOKING_SUMMARY') {
+    if (reportType === 'BOOKING_SUMMARY' || reportType === 'DETAILED_BOOKINGS') {
       chartIds.push({ id: 'chart-1', label: 'Booking Status Distribution' }, { id: 'chart-2', label: 'Bookings Trend' });
     } else if (reportType === 'REVENUE') {
       chartIds.push({ id: 'chart-3', label: 'Revenue Analysis' });
@@ -159,9 +160,19 @@ export default function Reports() {
       let tableData = [];
       let columns = [];
 
-      if (reportType === 'BOOKING_SUMMARY') {
+      if (reportType === 'DETAILED_BOOKINGS') {
+        columns = ['Date', 'Driver', 'Company', 'Client', 'Price', 'Status'];
+        tableData = data?.bookings?.map(b => [
+          new Date(b.created_at).toLocaleString(),
+          `${b.Driver?.full_name || 'N/A'} (${b.Driver?.driver_id || 'N/A'})`,
+          b.Company?.name || 'N/A',
+          `${b.patient_name} (${b.phone})`,
+          `$${b.price?.toLocaleString()}`,
+          b.status
+        ]) || [];
+      } else if (reportType === 'BOOKING_SUMMARY') {
         columns = ['Status', 'Count'];
-        tableData = data?.stats.map(s => [s.status, s.count]) || [];
+        tableData = data?.stats?.map(s => [s.status, s.count]) || [];
       } else if (reportType === 'REVENUE') {
         columns = ['Date', 'Amount'];
         tableData = data?.timeline?.map(t => [new Date(t.date).toLocaleDateString(), `$${t.amount.toLocaleString()}`]) || [];
@@ -210,10 +221,21 @@ export default function Reports() {
     let exportData = [];
     let sheetName = 'Report';
 
-    if (reportType === 'BOOKING_SUMMARY') {
-      exportData = data?.stats || [];
-      sheetName = 'Booking Summary';
-    } else if (reportType === 'REVENUE') {
+    if (reportType === 'DETAILED_BOOKINGS') {
+      exportData = data?.bookings?.map(b => ({
+        Date: new Date(b.created_at).toLocaleString(),
+        Driver: b.Driver?.full_name || 'N/A',
+        DriverID: b.Driver?.driver_id || 'N/A',
+        DriverPhone: b.Driver?.phone || 'N/A',
+        Company: b.Company?.name || 'N/A',
+        Client: b.patient_name,
+        ClientPhone: b.phone,
+        Price: b.price,
+        Status: b.status,
+        Emergency: b.emergency_description
+      })) || [];
+      sheetName = 'Detailed Bookings';
+    } else if (reportType === 'BOOKING_SUMMARY') {
       exportData = data?.timeline?.map(row => ({
         Date: row.date,
         Amount: row.amount,
@@ -263,6 +285,7 @@ export default function Reports() {
     if (!data) return null;
 
     switch (reportType) {
+      case 'DETAILED_BOOKINGS':
       case 'BOOKING_SUMMARY':
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -281,7 +304,7 @@ export default function Reports() {
                                 dataKey="count"
                                 nameKey="status"
                             >
-                                {data.stats.map((entry, index) => (
+                                {data.stats?.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
@@ -506,6 +529,46 @@ export default function Reports() {
             </div>
         </div>
 
+        <div className="flex items-center gap-2 no-print">
+            <button 
+                onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    setFilters({ startDate: today, endDate: today });
+                }}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-[10px] font-black text-slate-600 transition"
+            >
+                TODAY
+            </button>
+            <button 
+                onClick={() => {
+                    const end = new Date();
+                    const start = new Date();
+                    start.setDate(start.getDate() - 7);
+                    setFilters({ 
+                        startDate: start.toISOString().split('T')[0], 
+                        endDate: end.toISOString().split('T')[0] 
+                    });
+                }}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-[10px] font-black text-slate-600 transition"
+            >
+                WEEKLY
+            </button>
+            <button 
+                onClick={() => {
+                    const end = new Date();
+                    const start = new Date();
+                    start.setDate(start.getDate() - 30);
+                    setFilters({ 
+                        startDate: start.toISOString().split('T')[0], 
+                        endDate: end.toISOString().split('T')[0] 
+                    });
+                }}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-[10px] font-black text-slate-600 transition"
+            >
+                MONTHLY
+            </button>
+        </div>
+
         <button 
             onClick={fetchReportData}
             disabled={loading}
@@ -537,13 +600,54 @@ export default function Reports() {
                     <table className="w-full text-left">
                         <thead className="bg-slate-50/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                             <tr>
-                                <th className="px-6 py-4">Metric / Field</th>
-                                <th className="px-6 py-4">Value</th>
-                                <th className="px-6 py-4 text-right">Trend / Extra</th>
+                                {reportType === 'DETAILED_BOOKINGS' ? (
+                                    <>
+                                        <th className="px-6 py-4">Date/Time</th>
+                                        <th className="px-6 py-4">Driver</th>
+                                        <th className="px-6 py-4">Company</th>
+                                        <th className="px-6 py-4">Client</th>
+                                        <th className="px-6 py-4">Price</th>
+                                        <th className="px-6 py-4">Status</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="px-6 py-4">Metric / Field</th>
+                                        <th className="px-6 py-4">Value</th>
+                                        <th className="px-6 py-4 text-right">Trend / Extra</th>
+                                    </>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {reportType === 'BOOKING_SUMMARY' && data?.stats?.map(s => (
+                            {reportType === 'DETAILED_BOOKINGS' && data?.bookings?.map(b => (
+                                <tr key={b.id} className="hover:bg-slate-50/30 transition">
+                                    <td className="px-6 py-4 font-bold text-slate-700">
+                                        <div className="text-sm">{new Date(b.created_at).toLocaleDateString()}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium">{new Date(b.created_at).toLocaleTimeString()}</div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-slate-800">{b.Driver?.full_name || 'N/A'}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium">ID: {b.Driver?.driver_id || 'N/A'}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium">{b.Driver?.phone || ''}</div>
+                                    </td>
+                                    <td className="px-6 py-4 font-medium text-slate-600">{b.Company?.name || 'N/A'}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-slate-800">{b.patient_name}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium">{b.phone}</div>
+                                    </td>
+                                    <td className="px-6 py-4 font-black text-orange-600">${b.price?.toLocaleString()}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${
+                                            b.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                                            b.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'
+                                        }`}>
+                                            {b.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                            {(reportType === 'BOOKING_SUMMARY' || reportType === 'DETAILED_BOOKINGS') && data?.stats?.map(s => (
+                                reportType === 'BOOKING_SUMMARY' && (
                                 <tr key={s.status} className="hover:bg-slate-50/30 transition">
                                     <td className="px-6 py-4 font-bold text-slate-700 capitalize">{s.status.toLowerCase()}</td>
                                     <td className="px-6 py-4">
@@ -555,6 +659,7 @@ export default function Reports() {
                                         </div>
                                     </td>
                                 </tr>
+                                )
                             ))}
                             {reportType === 'REVENUE' && data?.timeline?.map(t => (
                                 <tr key={t.date} className="hover:bg-slate-50/30 transition">

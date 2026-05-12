@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, User, Calendar, Ambulance, Filter, Search, Loader2 } from 'lucide-react';
+import { Star, MessageSquare, User, Calendar, Ambulance, Filter, Search, Loader2, Building2 } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function FeedbackManagement() {
+    const { admin } = useAuth();
     const [feedback, setFeedback] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRating, setFilterRating] = useState('all');
+
+    const isSuperAdmin = admin?.role?.toLowerCase() === 'super_admin';
 
     useEffect(() => {
         fetchFeedback();
@@ -27,8 +31,11 @@ export default function FeedbackManagement() {
     const filteredFeedback = feedback.filter(item => {
         const patientName = (item.patient_name || item.Booking?.patient_name || '').toString();
         const ambulanceNumber = (item.ambulance_number || item.Booking?.Ambulance?.ambulance_number || '').toString();
+        const companyName = (item.Booking?.Company?.name || '').toString();
+        
         const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             ambulanceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+                             ambulanceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             companyName.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesRating = filterRating === 'all' || (item.rating === parseInt(filterRating));
         return matchesSearch && matchesRating;
     });
@@ -92,7 +99,7 @@ export default function FeedbackManagement() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
                         <input 
                             type="text" 
-                            placeholder="Search by patient or unit..."
+                            placeholder="Search by patient, unit or company..."
                             className="w-full pl-12 pr-4 py-3 bg-white rounded-2xl border-2 border-transparent focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all outline-none font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -121,6 +128,7 @@ export default function FeedbackManagement() {
                         <thead>
                             <tr className="bg-slate-50/50">
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Patient & Date</th>
+                                {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Company</th>}
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Ambulance Unit</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Rating</th>
                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Feedback Comment</th>
@@ -144,6 +152,16 @@ export default function FeedbackManagement() {
                                                 </div>
                                             </div>
                                         </td>
+                                        {isSuperAdmin && (
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white">
+                                                        <Building2 className="w-5 h-5" />
+                                                    </div>
+                                                    <p className="font-bold text-slate-900">{item.Booking?.Company?.name || 'N/A'}</p>
+                                                </div>
+                                            </td>
+                                        )}
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
@@ -175,7 +193,7 @@ export default function FeedbackManagement() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-medium">
+                                    <td colSpan={isSuperAdmin ? "5" : "4"} className="px-8 py-20 text-center text-slate-400 font-medium">
                                         No feedback found matching your criteria.
                                     </td>
                                 </tr>
