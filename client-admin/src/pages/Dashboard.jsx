@@ -6,6 +6,22 @@ import AdminMap from '../components/AdminMap';
 import RequestsBoard from '../components/RequestsBoard';
 import { Ambulance, Bell, Clock, Activity, Check } from 'lucide-react';
 
+const formatBookingTime = (timestamp) => {
+  if (!timestamp) return '—';
+  const date = new Date(timestamp);
+  return Number.isNaN(date.valueOf())
+    ? '—'
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const normalizeBooking = (booking) => ({
+  ...booking,
+  driver_name: booking.Driver?.full_name || booking.Driver?.driver_name || booking.Driver?.name || null,
+  driver_uid: booking.Driver?.driver_id || booking.Driver?.driver_uid || booking.Driver?.id || booking.driver_id || null,
+  ambulance_number: booking.Ambulance?.ambulance_number || null,
+  created_at: booking.created_at || booking.createdAt || null,
+});
+
 function LiveClock() {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -37,7 +53,7 @@ const Dashboard = () => {
           api.get('/bookings')
       ]);
       setAmbulances(ambRes.data);
-      setRequests(bookRes.data);
+      setRequests(bookRes.data.map(normalizeBooking));
     } catch (err) {
       console.error('Failed to fetch initial data', err);
     } finally {
@@ -67,7 +83,7 @@ const Dashboard = () => {
     const onNewBooking = (newBooking) => {
         setRequests(prev => {
             if (prev.some(r => r.id === newBooking.id)) return prev;
-            return [newBooking, ...prev];
+            return [normalizeBooking(newBooking), ...prev];
         });
     };
     adminSocket.onNewBooking(onNewBooking);
@@ -78,7 +94,7 @@ const Dashboard = () => {
     adminSocket.onDriverLocation(onLocationUpdate);
 
     const onStatusUpdate = (updatedBooking) => {
-        setRequests(prev => prev.map(r => r.id === updatedBooking.id ? { ...r, ...updatedBooking } : r));
+        setRequests(prev => prev.map(r => r.id === updatedBooking.id ? normalizeBooking({ ...r, ...updatedBooking }) : r));
         fetchData();
     };
     adminSocket.onBookingStatusUpdate(onStatusUpdate);
@@ -212,7 +228,7 @@ const Dashboard = () => {
                             }`}>
                                 {r.status}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-bold">{new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="text-[10px] text-slate-400 font-bold">{formatBookingTime(r.created_at)}</span>
                         </div>
                         <h3 className="font-bold text-slate-900 truncate">{r.patient_name}</h3>
                         <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">

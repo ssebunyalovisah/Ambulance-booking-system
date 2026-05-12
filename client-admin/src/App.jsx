@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Ambulance } from 'lucide-react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';

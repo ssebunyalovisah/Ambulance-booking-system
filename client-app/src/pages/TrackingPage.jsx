@@ -25,7 +25,7 @@ export default function TrackingPage({ onCancel }) {
               <h1 className="text-slate-900 font-black text-xl tracking-tight truncate">{displayStatus}</h1>
             </div>
           </div>
-          {['pending', 'accepted', 'dispatched', 'arrived'].includes(bookingStatus || 'pending') && (
+          {['pending', 'accepted', 'dispatched', 'arrived'].includes((bookingStatus || 'pending').toLowerCase()) && (
             <button 
               onClick={onCancel} 
               className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-2xl transition-all flex items-center gap-2"

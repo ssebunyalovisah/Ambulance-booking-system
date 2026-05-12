@@ -1,6 +1,6 @@
 // client-app/src/App.jsx
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Stethoscope, ArrowLeft } from 'lucide-react';
 import MapView from './components/MapComponent';
 import AmbulanceCard from './components/AmbulanceCard';

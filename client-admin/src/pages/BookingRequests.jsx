@@ -17,6 +17,22 @@ const STATUS_COLORS = {
   DENIED: 'bg-rose-100 text-rose-600 border-rose-200',
 };
 
+const formatBookingTime = (timestamp) => {
+  if (!timestamp) return '—';
+  const date = new Date(timestamp);
+  return Number.isNaN(date.valueOf())
+    ? '—'
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const normalizeBooking = (booking) => ({
+  ...booking,
+  driver_name: booking.Driver?.full_name || booking.Driver?.driver_name || booking.Driver?.name || null,
+  driver_uid: booking.Driver?.driver_id || booking.Driver?.driver_uid || booking.Driver?.id || booking.driver_id || null,
+  ambulance_number: booking.Ambulance?.ambulance_number || null,
+  created_at: booking.created_at || booking.createdAt || null,
+});
+
 const BookingRequests = () => {
   const { admin } = useAuth();
   const [bookings, setBookings] = useState([]);
@@ -47,7 +63,7 @@ const BookingRequests = () => {
           api.get('/bookings'),
           api.get('/ambulances'),
         ]);
-        setBookings(bookRes.data);
+        setBookings(bookRes.data.map(normalizeBooking));
         setAvailableAmbulances(ambRes.data.filter(a => a.status.toLowerCase() === 'available'));
       } catch (err) {
         console.error(err);
@@ -65,7 +81,7 @@ const BookingRequests = () => {
     const onNewBooking = (newBooking) => {
       setBookings(prev => {
         if (prev.some(b => b.id === newBooking.id)) return prev;
-        return [newBooking, ...prev];
+        return [normalizeBooking(newBooking), ...prev];
       });
     };
     adminSocket.onNewBooking(onNewBooking);
@@ -74,7 +90,7 @@ const BookingRequests = () => {
       if (updated.type === 'driver_update') {
         showToast(`Driver status updated to ${updated.status}`);
       }
-      setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b));
+      setBookings(prev => prev.map(b => b.id === updated.id ? normalizeBooking({ ...b, ...updated }) : b));
       fetchAmbulances();
     };
     adminSocket.onBookingStatusUpdate(updateBookingStatus);
@@ -90,7 +106,7 @@ const BookingRequests = () => {
         'error'
       );
       // Also patch the row in-place
-      setBookings(prev => prev.map(b => b.id === data.id ? { ...b, ...data } : b));
+      setBookings(prev => prev.map(b => b.id === data.id ? normalizeBooking({ ...b, ...data }) : b));
     };
     if (sock) sock.on('booking_cancelled', onBookingCancelled);
 
@@ -133,7 +149,7 @@ const BookingRequests = () => {
         body.reason = 'Cancelled by dispatch operator';
       }
       await api.patch(`/bookings/${id}/${status.toLowerCase()}`, body);
-      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: status.toLowerCase(), ambulance_id: ambulance_id || b.ambulance_id } : b));
+      setBookings(prev => prev.map(b => b.id === id ? normalizeBooking({ ...b, status: status.toLowerCase(), ambulance_id: ambulance_id || b.ambulance_id }) : b));
       setDispatchingId(null);
       showToast(`Booking ${status.toLowerCase()}`);
     } catch (err) {
@@ -246,10 +262,13 @@ const BookingRequests = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {booking.driver_name ? (
+                        {(booking.driver_name || booking.ambulance_number || booking.driver_id || booking.ambulance_id) ? (
                             <div className="flex flex-col">
-                                <div className="text-sm font-bold text-slate-800">{booking.driver_name}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Unit: {booking.ambulance_number} | {booking.driver_uid}</div>
+                                <div className="text-sm font-bold text-slate-800">{booking.driver_name || 'Assigned Unit'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                                  Unit: {booking.ambulance_number || booking.ambulance_id || 'Unknown'}
+                                  {booking.driver_uid ? ` | ${booking.driver_uid}` : ''}
+                                </div>
                             </div>
                         ) : (
                             <span className="text-xs text-slate-400 italic">No unit assigned</span>
@@ -282,12 +301,12 @@ const BookingRequests = () => {
           )}
         </div>
       </td>
-      <td className="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
-        <div className="flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
-          {new Date(booking.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {formatBookingTime(booking.created_at)}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           {booking.status?.toUpperCase() === 'PENDING' && (

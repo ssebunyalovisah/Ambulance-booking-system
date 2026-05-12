@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { Clock, MapPin, Phone, User, Ambulance, X, Check, ChevronDown } from 'lucide-react';
 
+const formatRequestTime = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    const date = new Date(timestamp);
+    return Number.isNaN(date.valueOf())
+      ? 'Just now'
+      : date.toLocaleString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function RequestsBoard({ requests, onAccept, onReject, availableAmbulances = [], readOnly = false }) {
     const [dispatchingId, setDispatchingId] = useState(null);
     const [selectedAmbulance, setSelectedAmbulance] = useState({});
@@ -143,7 +151,7 @@ export default function RequestsBoard({ requests, onAccept, onReject, availableA
                         {/* Timestamp */}
                         <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-3 pt-2 border-t border-slate-100">
                             <Clock className="w-3 h-3" />
-                            {req.created_at ? new Date(req.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                            {formatRequestTime(req.created_at || req.createdAt)}
                         </div>
                     </div>
                 ))}
