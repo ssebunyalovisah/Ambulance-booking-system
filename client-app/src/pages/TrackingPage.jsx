@@ -12,7 +12,7 @@ export default function TrackingPage({ onCancel, onExit }) {
   const normalizedStatus = (bookingStatus || 'pending').toLowerCase();
   const displayStatus = normalizedStatus.toUpperCase();
   const canCancel = ['pending', 'accepted', 'dispatched', 'arrived'].includes(normalizedStatus);
-  const canExit = ['timed_out', 'cancelled'].includes(normalizedStatus);
+  const canExit = ['timed_out', 'cancelled', 'denied', 'completed'].includes(normalizedStatus);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-100 flex flex-col font-sans">

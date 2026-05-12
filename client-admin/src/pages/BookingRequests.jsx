@@ -204,9 +204,9 @@ const BookingRequests = () => {
           { label: 'Completed', count: counts.COMPLETED, color: 'text-green-600 bg-green-50 border-green-100' },
           { label: 'Total', count: counts.ALL, color: 'text-slate-600 bg-slate-50 border-slate-100' },
         ].map(s => (
-          <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-            <div className="text-2xl font-black">{s.count}</div>
-            <div className="text-xs font-bold uppercase tracking-wider mt-1 opacity-70">{s.label}</div>
+          <div key={s.label} className={`rounded-2xl border p-3 sm:p-4 ${s.color}`}>
+            <div className="text-xl sm:text-2xl font-black">{s.count}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-70 truncate">{s.label}</div>
           </div>
         ))}
       </div>
@@ -243,29 +243,29 @@ const BookingRequests = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Assigned Unit</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Location</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Time</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Assigned Unit</th>
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Location</th>
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Time</th>
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map(booking => (
                   <Fragment key={booking.id}>
                     <tr className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-slate-900">{booking.patient_name}</div>
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="font-medium text-slate-900 truncate max-w-[120px] sm:max-w-none">{booking.patient_name}</div>
                         <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3" /> {booking.phone}
+                          <Phone className="w-3 h-3" /> <span className="truncate">{booking.phone}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         {(booking.driver_name || booking.ambulance_number || booking.driver_id || booking.ambulance_id) ? (
-                            <div className="flex flex-col">
-                                <div className="text-sm font-bold text-slate-800">{booking.driver_name || 'Assigned Unit'}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                            <div className="flex flex-col max-w-[120px] sm:max-w-none">
+                                <div className="text-sm font-bold text-slate-800 truncate">{booking.driver_name || 'Assigned Unit'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold truncate">
                                   Unit: {booking.ambulance_number || booking.ambulance_id || 'Unknown'}
                                   {booking.driver_uid ? ` | ${booking.driver_uid}` : ''}
                                 </div>
@@ -288,69 +288,69 @@ const BookingRequests = () => {
                           </div>
                         </div>
                       </td>
-      <td className="px-6 py-4">
-        <div className="flex flex-col gap-1">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-bold border w-fit ${STATUS_COLORS[booking.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
-            {booking.status?.toUpperCase()}
-          </span>
-          {(booking.status === 'cancelled' || booking.status === 'denied') && (
-            <span className="text-[10px] text-red-500 font-bold italic leading-tight">
-              By: {booking.cancelled_by || 'Unknown'} <br/>
-              {booking.cancel_reason || booking.reason || 'No reason provided'}
-            </span>
-          )}
-        </div>
-      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold border w-fit ${STATUS_COLORS[booking.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
+                            {booking.status?.toUpperCase()}
+                          </span>
+                          {(booking.status === 'cancelled' || booking.status === 'denied') && (
+                            <span className="text-[10px] text-red-500 font-bold italic leading-tight truncate max-w-[100px] sm:max-w-none">
+                              By: {booking.cancelled_by || 'Unknown'} <br/>
+                              {booking.cancel_reason || booking.reason || 'No reason provided'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
                           {formatBookingTime(booking.created_at)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 sm:px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           {booking.status?.toUpperCase() === 'PENDING' && (
                             <div className="flex flex-col items-end gap-1">
                                 {!booking.driver_id ? (
                                     <button
                                         onClick={() => handleDispatch(booking.id)}
-                                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 w-full justify-center"
+                                        className="px-2 sm:px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-[10px] sm:text-xs font-bold rounded-lg transition flex items-center gap-1 w-full sm:w-auto justify-center"
                                     >
-                                        <Ambulance className="w-3.5 h-3.5" /> Manual Dispatch
+                                        <Ambulance className="w-3 sm:w-3.5 h-3 sm:h-3.5" /> <span className="hidden xs:inline">Manual</span> Dispatch
                                     </button>
                                 ) : (
-                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest animate-pulse">Waiting for Driver...</span>
+                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest animate-pulse">Waiting...</span>
                                 )}
                                 <button
                                     onClick={() => updateStatus(booking.id, 'CANCEL')}
-                                    className="text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest mt-1"
+                                    className="text-[9px] sm:text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest mt-1"
                                 >
-                                    Cancel Request
+                                    Cancel
                                 </button>
                             </div>
                           )}
                           {booking.status?.toUpperCase() === 'ACCEPTED' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'DISPATCH')}
-                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition"
+                              className="px-2 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] sm:text-xs font-bold rounded-lg transition"
                             >
-                              Mark Dispatched
+                              Dispatch
                             </button>
                           )}
                           {booking.status?.toUpperCase() === 'DISPATCHED' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'ARRIVE')}
-                              className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-lg transition"
+                              className="px-2 sm:px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-[10px] sm:text-xs font-bold rounded-lg transition"
                             >
-                              Mark Arrived
+                              Arrive
                             </button>
                           )}
                           {booking.status?.toUpperCase() === 'ARRIVED' && (
                             <button
                               onClick={() => updateStatus(booking.id, 'COMPLETE')}
-                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition"
+                              className="px-2 sm:px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] sm:text-xs font-bold rounded-lg transition"
                             >
-                              Mark Complete
+                              Complete
                             </button>
                           )}
                         </div>
