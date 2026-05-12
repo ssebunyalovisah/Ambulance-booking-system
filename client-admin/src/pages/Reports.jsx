@@ -20,7 +20,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, Legend, AreaChart, Area 
 } from 'recharts';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 
@@ -89,7 +89,13 @@ export default function Reports() {
       const chartElement = document.getElementById(chartId);
       if (!chartElement) return false;
       try {
-        const canvas = await html2canvas(chartElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const canvas = await html2canvas(chartElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          allowTaint: true,
+          foreignObjectRendering: true,
+        });
         const imgData = canvas.toDataURL('image/png');
         const imgWidth = 180;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -108,6 +114,20 @@ export default function Reports() {
         return true;
       } catch (error) {
         console.error('Error capturing chart:', error);
+        if (yPosition + 20 > 280) {
+          doc.addPage();
+          yPosition = 20;
+          addHeader();
+          yPosition = 42;
+        }
+        doc.setFontSize(11);
+        doc.setTextColor('#1e293b');
+        doc.text(label, 14, yPosition);
+        yPosition += 6;
+        doc.setFontSize(9);
+        doc.setTextColor('#64748b');
+        doc.text('Chart preview unavailable for PDF export due to browser rendering limitations.', 14, yPosition, { maxWidth: 180 });
+        yPosition += 12;
         return false;
       }
     };
@@ -168,7 +188,7 @@ export default function Reports() {
         yPosition = 42;
       }
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [columns],
         body: tableData,
@@ -306,7 +326,7 @@ export default function Reports() {
                         ${data.total?.toLocaleString()}
                     </div>
                 </div>
-                <div className="h-[400px]">
+                <div className="h-[320px] sm:h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.timeline}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -332,7 +352,7 @@ export default function Reports() {
                         Top performers in the selected date range
                     </span>
                 </div>
-                <div className="h-[400px]">
+                <div className="h-[320px] sm:h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={data.performance}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -395,7 +415,7 @@ export default function Reports() {
                 {data.total || 0} completed response cases
               </div>
             </div>
-            <div className="h-[400px]">
+            <div className="h-[320px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.response_times}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

@@ -84,24 +84,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex font-sans">
-      <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587507565239-bca541983995?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-40" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950" />
-        <div className="relative z-10 p-12 flex flex-col justify-between h-full">
+    <div className="min-h-screen bg-slate-950 flex flex-col lg:flex-row font-sans">
+      <div className="relative w-full lg:w-1/2 h-72 lg:h-auto overflow-hidden bg-slate-900">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587507565239-bca541983995?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-slate-950" />
+        <div className="relative z-10 p-8 lg:p-12 flex flex-col justify-between h-full">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/40">
               <Ambulance className="text-white w-6 h-6" />
             </div>
             <span className="text-white font-black text-xl">RescueAdmin</span>
           </div>
-          <div>
-            <h2 className="text-5xl font-black text-white leading-tight mb-6">
+          <div className="mt-8 lg:mt-0">
+            <h2 className="text-3xl lg:text-5xl font-black text-white leading-tight mb-4">
               Command Center<br /><span className="text-orange-500">Dispatch Unit</span>
             </h2>
-            <p className="text-slate-400 text-lg max-w-md">Precision monitoring and coordination for emergency ambulance services.</p>
+            <p className="text-slate-300 text-base lg:text-lg max-w-md">Precision monitoring and coordination for emergency ambulance services.</p>
           </div>
-          <p className="text-slate-500 text-sm">© 2026 Unified Emergency System v3</p>
+          <p className="text-slate-400 text-sm mt-6 lg:mt-0">© 2026 Unified Emergency System v3</p>
         </div>
       </div>
 
