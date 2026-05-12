@@ -19,7 +19,10 @@ jobs:
       - name: Sync fork
         uses: tgymnich/fork-sync@v1.8
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           owner: ssebunyalovisah
+          repo: Ambulance-booking-system
           head: main
           base: main
+          auto_approve: 'true'
+          auto_merge: 'true'
