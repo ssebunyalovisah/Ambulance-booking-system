@@ -161,27 +161,27 @@ export default function Reports() {
       let columns = [];
 
       if (reportType === 'DETAILED_BOOKINGS') {
-        columns = ['Date', 'Driver', 'Company', 'Client', 'Price', 'Status'];
+        columns = ['Date/Time', 'Unit', 'Driver', 'Client', 'Amount Paid', 'Status'];
         tableData = data?.bookings?.map(b => [
           new Date(b.created_at).toLocaleString(),
+          b.Ambulance?.ambulance_number || 'N/A',
           `${b.Driver?.full_name || 'N/A'} (${b.Driver?.driver_id || 'N/A'})`,
-          b.Company?.name || 'N/A',
           `${b.patient_name} (${b.phone})`,
-          `$${b.price?.toLocaleString()}`,
+          `$${(b.price || 0).toLocaleString()}`,
           b.status
         ]) || [];
       } else if (reportType === 'BOOKING_SUMMARY') {
-        columns = ['Status', 'Count'];
-        tableData = data?.stats?.map(s => [s.status, s.count]) || [];
+        columns = ['Status', 'Count', 'Total Revenue'];
+        tableData = data?.stats?.map(s => [s.status, s.count, `$${(s.total_price || 0).toLocaleString()}`]) || [];
       } else if (reportType === 'REVENUE') {
         columns = ['Date', 'Amount'];
-        tableData = data?.timeline?.map(t => [new Date(t.date).toLocaleDateString(), `$${t.amount.toLocaleString()}`]) || [];
+        tableData = data?.timeline?.map(t => [new Date(t.date).toLocaleDateString(), `$${(t.amount || 0).toLocaleString()}`]) || [];
       } else if (reportType === 'AMBULANCE_UTILIZATION') {
-        columns = ['Ambulance #', 'Total Bookings'];
-        tableData = data?.utilization?.map(u => [u.ambulance_number, u.total_bookings]) || [];
+        columns = ['Ambulance #', 'Total Bookings', 'Total Revenue'];
+        tableData = data?.utilization?.map(u => [u.ambulance_number, u.total_bookings, `$${(u.total_revenue || 0).toLocaleString()}`]) || [];
       } else if (reportType === 'DRIVER_PERFORMANCE') {
-        columns = ['Driver', 'Trips', 'Avg Rating'];
-        tableData = data?.performance?.map(p => [p.driver_name, p.trips, p.avg_rating]) || [];
+        columns = ['Driver', 'Trips', 'Avg Rating', 'Total Revenue'];
+        tableData = data?.performance?.map(p => [p.driver_name, p.trips, p.avg_rating, `$${(p.total_revenue || 0).toLocaleString()}`]) || [];
       } else if (reportType === 'FEEDBACK') {
         columns = ['Rating', 'Count'];
         tableData = data?.feedback?.map(f => [f.rating, f.count]) || [];
@@ -223,28 +223,35 @@ export default function Reports() {
 
     if (reportType === 'DETAILED_BOOKINGS') {
       exportData = data?.bookings?.map(b => ({
-        Date: new Date(b.created_at).toLocaleString(),
-        Driver: b.Driver?.full_name || 'N/A',
-        DriverID: b.Driver?.driver_id || 'N/A',
-        DriverPhone: b.Driver?.phone || 'N/A',
-        Company: b.Company?.name || 'N/A',
-        Client: b.patient_name,
-        ClientPhone: b.phone,
-        Price: b.price,
-        Status: b.status,
-        Emergency: b.emergency_description
+        'Date/Time': new Date(b.created_at).toLocaleString(),
+        'Unit': b.Ambulance?.ambulance_number || 'N/A',
+        'Driver': b.Driver?.full_name || 'N/A',
+        'Driver ID': b.Driver?.driver_id || 'N/A',
+        'Client': b.patient_name,
+        'Client Phone': b.phone,
+        'Amount Paid': b.price || 0,
+        'Status': b.status,
+        'Emergency': b.emergency_description
       })) || [];
       sheetName = 'Detailed Bookings';
     } else if (reportType === 'BOOKING_SUMMARY') {
-      exportData = data?.timeline?.map(row => ({
-        Date: row.date,
-        Amount: row.amount,
+      exportData = data?.stats?.map(row => ({
+        Status: row.status,
+        Count: row.count,
+        TotalRevenue: row.total_price || 0
       })) || [];
-      sheetName = 'Revenue Timeline';
+      sheetName = 'Booking Summary';
+    } else if (reportType === 'REVENUE') {
+        exportData = data?.timeline?.map(row => ({
+          Date: row.date,
+          Amount: row.amount,
+        })) || [];
+        sheetName = 'Revenue Timeline';
     } else if (reportType === 'AMBULANCE_UTILIZATION') {
       exportData = data?.utilization?.map(row => ({
         Ambulance: row.ambulance_number,
         TotalBookings: row.total_bookings,
+        TotalRevenue: row.total_revenue || 0
       })) || [];
       sheetName = 'Ambulance Utilization';
     } else if (reportType === 'DRIVER_PERFORMANCE') {
@@ -252,6 +259,7 @@ export default function Reports() {
         Driver: row.driver_name,
         Trips: row.trips,
         AvgRating: row.avg_rating,
+        TotalRevenue: row.total_revenue || 0
       })) || [];
       sheetName = 'Driver Performance';
     } else if (reportType === 'FEEDBACK') {
@@ -269,14 +277,19 @@ export default function Reports() {
     }
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    ws['!cols'] = Object.keys(exportData[0] || {}).map(key => ({ wch: Math.max(key.length + 5, 15) }));
-    if (Object.keys(ws).length > 0 && ws['A1']) {
-      ws['A1'].s = {
-        fill: { fgColor: { rgb: 'F97316' } },
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-      };
-    }
+    
+    // Add generation info row at the top
+    const reportInfo = [
+      ['REPORT:', sheetName],
+      ['GENERATED:', new Date().toLocaleString()],
+      ['PERIOD:', `${filters.startDate} to ${filters.endDate}`],
+      [], // Empty row
+    ];
+    
+    const ws = XLSX.utils.json_to_sheet(exportData, { origin: 4 });
+    XLSX.utils.sheet_add_aoa(ws, reportInfo, { origin: 0 });
+
+    ws['!cols'] = Object.keys(exportData[0] || {}).map(key => ({ wch: Math.max(key.length + 5, 20) }));
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, `RescueReport_${reportType}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
@@ -603,16 +616,18 @@ export default function Reports() {
                                 {reportType === 'DETAILED_BOOKINGS' ? (
                                     <>
                                         <th className="px-6 py-4">Date/Time</th>
+                                        <th className="px-6 py-4">Unit</th>
                                         <th className="px-6 py-4">Driver</th>
                                         <th className="px-6 py-4">Company</th>
                                         <th className="px-6 py-4">Client</th>
-                                        <th className="px-6 py-4">Price</th>
+                                        <th className="px-6 py-4">Amount Paid</th>
                                         <th className="px-6 py-4">Status</th>
                                     </>
                                 ) : (
                                     <>
                                         <th className="px-6 py-4">Metric / Field</th>
-                                        <th className="px-6 py-4">Value</th>
+                                        <th className="px-6 py-4">Volume</th>
+                                        <th className="px-6 py-4">Total Revenue</th>
                                         <th className="px-6 py-4 text-right">Trend / Extra</th>
                                     </>
                                 )}
@@ -626,16 +641,18 @@ export default function Reports() {
                                         <div className="text-[10px] text-slate-400 font-medium">{new Date(b.created_at).toLocaleTimeString()}</div>
                                     </td>
                                     <td className="px-6 py-4">
+                                        <div className="font-bold text-slate-800">{b.Ambulance?.ambulance_number || 'N/A'}</div>
+                                    </td>
+                                    <td className="px-6 py-4">
                                         <div className="font-bold text-slate-800">{b.Driver?.full_name || 'N/A'}</div>
                                         <div className="text-[10px] text-slate-400 font-medium">ID: {b.Driver?.driver_id || 'N/A'}</div>
-                                        <div className="text-[10px] text-slate-400 font-medium">{b.Driver?.phone || ''}</div>
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-600">{b.Company?.name || 'N/A'}</td>
                                     <td className="px-6 py-4">
                                         <div className="font-bold text-slate-800">{b.patient_name}</div>
                                         <div className="text-[10px] text-slate-400 font-medium">{b.phone}</div>
                                     </td>
-                                    <td className="px-6 py-4 font-black text-orange-600">${b.price?.toLocaleString()}</td>
+                                    <td className="px-6 py-4 font-black text-orange-600">${(b.price || 0).toLocaleString()}</td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${
                                             b.status === 'completed' ? 'bg-green-100 text-green-700' : 
@@ -653,6 +670,7 @@ export default function Reports() {
                                     <td className="px-6 py-4">
                                         <span className="px-2 py-1 bg-slate-100 rounded-lg font-mono text-xs">{s.count} Bookings</span>
                                     </td>
+                                    <td className="px-6 py-4 font-black text-orange-600">${(s.total_price || 0).toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1 text-[10px] text-green-600 font-bold">
                                             <TrendingUp className="w-3 h-3" /> Live
@@ -672,6 +690,7 @@ export default function Reports() {
                                 <tr key={u.ambulance_number} className="hover:bg-slate-50/30 transition">
                                     <td className="px-6 py-4 font-bold text-slate-700">{u.ambulance_number}</td>
                                     <td className="px-6 py-4">{u.total_bookings} bookings</td>
+                                    <td className="px-6 py-4 font-black text-orange-600">${(u.total_revenue || 0).toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right text-xs text-slate-400">Utilization count</td>
                                 </tr>
                             ))}
@@ -679,6 +698,7 @@ export default function Reports() {
                                 <tr key={p.driver_name} className="hover:bg-slate-50/30 transition">
                                     <td className="px-6 py-4 font-bold text-slate-700">{p.driver_name}</td>
                                     <td className="px-6 py-4">{p.trips} trips</td>
+                                    <td className="px-6 py-4 font-black text-orange-600">${(p.total_revenue || 0).toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right text-xs text-slate-400">Avg rating {p.avg_rating}</td>
                                 </tr>
                             ))}

@@ -20,6 +20,12 @@ import { useLocationStore } from './store/useLocationStore';
 function EmergencyApp() {
   const navigate = useNavigate();
   const [paymentIframeUrl, setPaymentIframeUrl] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const { 
     userLocation, locationLoading, nearbyAmbulances, setUserLocation, setNearbyAmbulances, setLocationLoading 
@@ -163,9 +169,14 @@ function EmergencyApp() {
           <ArrowLeft className="w-5 h-5 text-slate-700" />
           <span className="font-bold text-slate-800 text-sm">Home</span>
         </button>
-        <div className="bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-xl border border-white/50 flex items-center gap-3">
-          <Stethoscope className="w-5 h-5 text-orange-600 animate-pulse" />
-          <span className="font-bold text-slate-800 text-sm">Rescue System</span>
+        <div className="bg-white/90 backdrop-blur-md p-3 rounded-3xl shadow-xl border border-white/50 flex flex-col items-end">
+          <div className="flex items-center gap-2">
+            <Stethoscope className="w-4 h-4 text-orange-600 animate-pulse" />
+            <span className="font-black text-slate-800 text-xs uppercase tracking-tight">Rescue System</span>
+          </div>
+          <div className="text-[10px] font-bold text-slate-500 mt-0.5 tabular-nums">
+            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} | {currentTime.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+          </div>
         </div>
       </div>
 

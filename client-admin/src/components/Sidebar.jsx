@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -18,6 +19,30 @@ import {
 
 const Sidebar = ({ isOpen, onClose }) => {
     const { admin, logout } = useAuth();
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const formatDate = (date) => {
+        return date.toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+    };
+
+    const formatTime = (date) => {
+        return date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true 
+        });
+    };
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Overview', path: '/' },
@@ -86,7 +111,17 @@ const Sidebar = ({ isOpen, onClose }) => {
                     ))}
                 </nav>
 
-                <div className="p-4 mt-auto">
+                <div className="p-4 mt-auto space-y-4">
+                    {/* Clock Widget */}
+                    <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-800/50 flex flex-col items-center justify-center">
+                        <div className="text-xl font-black text-white tabular-nums tracking-wider">
+                            {formatTime(currentTime)}
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                            {formatDate(currentTime)}
+                        </div>
+                    </div>
+
                     <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 space-y-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-tr from-orange-600 to-orange-500 rounded-xl flex items-center justify-center text-white font-bold">

@@ -5,7 +5,7 @@ import socketService from '../services/socket.js';
 import { acceptBooking, denyBooking, timeoutBooking, getActiveBooking, getMe } from '../services/api.js';
 import useTripStore from '../store/useTripStore.js';
 import useDriverLocation from '../hooks/useDriverLocation.js';
-import { Bell, X, Check, MapPin, User, Clock } from 'lucide-react';
+import { Bell, X, Check, MapPin, User, Clock, Ambulance } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 const TIMEOUT_SECONDS = 30;
@@ -13,6 +13,7 @@ const TIMEOUT_SECONDS = 30;
 const DriverLayout = ({ children }) => {
   const [currentRequest, setCurrentRequest] = useState(null);
   const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECONDS);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const navigate = useNavigate();
   const { location: driverLocation } = useDriverLocation();
   const currentRequestRef = useRef(null);
@@ -154,9 +155,39 @@ const DriverLayout = ({ children }) => {
     }
   };
 
+  // Clock timer
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className="min-h-screen relative font-sans overflow-x-hidden">
-      {children}
+    <div className="min-h-screen relative font-sans overflow-x-hidden bg-slate-50">
+      {/* Global Header */}
+      <div className="fixed top-4 left-4 right-4 z-[50] flex justify-between items-center pointer-events-none">
+        <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border border-white/10 flex items-center gap-3 pointer-events-auto">
+          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+            <Ambulance className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest leading-none">Driver Portal</div>
+            <div className="text-xs font-bold text-white mt-1">{localStorage.getItem('driverName') || 'Active Duty'}</div>
+          </div>
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border border-slate-200 flex flex-col items-end pointer-events-auto">
+          <div className="text-sm font-black text-slate-900 tabular-nums">
+            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </div>
+          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">
+            {currentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-20">
+        {children}
+      </div>
 
       {/* Incoming Request Overlay */}
       {currentRequest && (

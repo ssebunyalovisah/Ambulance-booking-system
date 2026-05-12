@@ -24,12 +24,17 @@ exports.getReportsData = async (req, res) => {
       case 'BOOKING_SUMMARY': {
         const stats = await Booking.findAll({
           where,
-          attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+          attributes: [
+            'status', 
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+            [sequelize.fn('SUM', sequelize.col('price')), 'total_price']
+          ],
           group: ['status'],
         });
         data.stats = stats.map(entry => ({
           status: entry.status,
           count: Number(entry.get('count') || 0),
+          total_price: Number(entry.get('total_price') || 0),
         }));
 
         const timelineRows = await Booking.findAll({
@@ -76,6 +81,7 @@ exports.getReportsData = async (req, res) => {
           attributes: [
             'ambulance_number',
             [sequelize.fn('COUNT', sequelize.col('Bookings.id')), 'total_bookings'],
+            [sequelize.fn('SUM', sequelize.col('Bookings.price')), 'total_revenue'],
           ],
           include: [{
             model: Booking,
@@ -90,6 +96,7 @@ exports.getReportsData = async (req, res) => {
         data.utilization = utilizationRows.map(entry => ({
           ambulance_number: entry.ambulance_number,
           total_bookings: Number(entry.get('total_bookings') || 0),
+          total_revenue: Number(entry.get('total_revenue') || 0),
         }));
         break;
       }
@@ -101,6 +108,7 @@ exports.getReportsData = async (req, res) => {
             ['full_name', 'driver_name'],
             [sequelize.fn('COUNT', sequelize.col('Bookings.id')), 'trips'],
             [sequelize.fn('AVG', sequelize.col('Bookings.rating')), 'avg_rating'],
+            [sequelize.fn('SUM', sequelize.col('Bookings.price')), 'total_revenue'],
           ],
           include: [{
             model: Booking,
@@ -116,6 +124,7 @@ exports.getReportsData = async (req, res) => {
           driver_name: entry.get('driver_name'),
           trips: Number(entry.get('trips') || 0),
           avg_rating: Number(entry.get('avg_rating') || 0).toFixed(1),
+          total_revenue: Number(entry.get('total_revenue') || 0),
         }));
         break;
       }
