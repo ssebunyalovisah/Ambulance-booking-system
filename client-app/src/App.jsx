@@ -157,7 +157,7 @@ function EmergencyApp() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-slate-50 font-sans">
+    <div className="relative h-screen w-screen overflow-hidden overflow-x-hidden bg-slate-50 font-sans">
       <div className="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-center">
         <button onClick={() => navigate("/")} className="bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-xl border border-white/50 flex items-center gap-3">
           <ArrowLeft className="w-5 h-5 text-slate-700" />

@@ -155,7 +155,7 @@ const DriverLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen relative font-sans">
+    <div className="min-h-screen relative font-sans overflow-x-hidden">
       {children}
 
       {/* Incoming Request Overlay */}

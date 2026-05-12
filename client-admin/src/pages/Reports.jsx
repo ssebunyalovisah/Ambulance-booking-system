@@ -326,7 +326,7 @@ export default function Reports() {
                         ${data.total?.toLocaleString()}
                     </div>
                 </div>
-                <div className="h-[320px] sm:h-[400px]">
+                <div className="h-[320px] sm:h-[400px] min-h-[200px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.timeline}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -352,7 +352,7 @@ export default function Reports() {
                         Top performers in the selected date range
                     </span>
                 </div>
-                <div className="h-[320px] sm:h-[400px]">
+                <div className="h-[320px] sm:h-[400px] min-h-[200px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={data.performance}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -415,7 +415,7 @@ export default function Reports() {
                 {data.total || 0} completed response cases
               </div>
             </div>
-            <div className="h-[320px] sm:h-[400px]">
+            <div className="h-[320px] sm:h-[400px] min-h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.response_times}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -438,7 +438,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="p-4 md:p-8 w-full max-h-screen">
+    <div className="p-4 md:p-8 w-full max-h-screen overflow-x-hidden">
       <style>{`@media print { .no-print { display: none !important; } .print-only { display: block !important; } body { background: #ffffff; } }`}</style>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
