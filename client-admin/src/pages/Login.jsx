@@ -84,9 +84,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col lg:flex-row font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-950 flex flex-col lg:flex-row font-sans overflow-hidden">
       <div className="relative w-full lg:w-1/2 h-72 lg:h-auto overflow-hidden bg-slate-900">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587507565239-bca541983995?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-90 lg:opacity-40" />
+        <div className="absolute inset-0 bg-[url('/ambulance-bg.jpg')] bg-cover bg-center opacity-90 lg:opacity-40" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-slate-950" />
         <div className="relative z-10 p-8 lg:p-12 flex flex-col justify-between h-full">
           <div className="flex items-center gap-3">
@@ -105,7 +105,7 @@ const Login = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-950 overflow-x-hidden">
+      <div className="flex-1 flex items-center justify-center p-8 bg-slate-950 overflow-hidden">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center lg:text-left">
             <h1 className="text-4xl font-black text-white mb-2">Access Portal</h1>
